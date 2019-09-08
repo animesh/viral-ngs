@@ -2364,7 +2364,7 @@ def generate_benchmark_variant_comparisons_from_gathered_metrics(benchmarks_spec
                             margin = std_fraction*min(data[variants[0]].std(), data[variants[1]].std())
                             return margin, data[(data[variants[0]] - data[variants[1]]).abs() > margin]
 
-                        margin_to_plot, data_to_plot = get_data_differing_by_margin(data, std_fraction=.02)
+                        margin_to_plot, data_to_plot = get_data_differing_by_margin(data, std_fraction=.01)
                         
                         fig = pp.figure()
                         fig.suptitle('Metric: {}\nOmitted {} with diff < {:.2f}'.format(metric,
