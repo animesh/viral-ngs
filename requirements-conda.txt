@@ -1,7 +1,7 @@
 annexremote=1.3.1
 autologging=1.3.2
 blast=2.6.0
-bbmap=38.62
+bbmap=38.67
 bmtagger=3.101
 boto3=1.9.211
 bwa=0.7.17
