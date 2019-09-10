@@ -3642,6 +3642,25 @@ def parser_invoke_benchmarks_update(parser=argparse.ArgumentParser()):
 __commands__.append(('invoke_benchmarks_update', parser_invoke_benchmarks_update))
 
 #########################################################################################################################
+def start_benchmarks_webserver(dummy):
+    """Trigger the updating of benchmarks"""
+    lambda_client = boto3.client('lambda')
+    payload = {'start_benchmarks_webserver': True}
+    response = lambda_client.invoke(
+            FunctionName='trigger_viral_ngs_benchmarks_update',
+            LogType='Tail',
+            Payload=json.dumps(payload).encode()
+        )
+    _log.info('invoke_benchmark_update: lambda response - %s', response)
+
+def parser_start_benchmarks_webserver(parser=argparse.ArgumentParser()):
+    parser.add_argument('--dummy', help='dummy arg')
+    util.cmd.attach_main(parser, start_benchmarks_webserver, split_args=True)
+    return parser
+
+__commands__.append(('start_benchmarks_webserver', parser_start_benchmarks_webserver))
+
+#########################################################################################################################
 
 def fix_analysis_labels(fnames):
     """Ensure given file is present in local annex"""
