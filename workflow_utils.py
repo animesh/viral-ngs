@@ -3241,7 +3241,7 @@ def diff_analyses_org(analysis_dirs, key_prefixes=()):
 
     return org.cur
 
-def diff_analyses_html(benchmark_dir, variants, key_prefixes=()):
+def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
     """Generate an HTML view of differences between two analysis dirs.
     
     Args:
@@ -3254,9 +3254,10 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=()):
     util.file.mkdir_p(out_dir)
 
     benchmark_variants_link = os.path.join(out_dir, 'benchmark_variants')
-    if os.path.lexists(benchmark_variants_link):
-        os.remove(benchmark_variants_link)
-    os.symlink('../../../benchmark_variants', benchmark_variants_link)
+    if not cgi:
+        if os.path.lexists(benchmark_variants_link):
+            os.remove(benchmark_variants_link)
+        os.symlink('../../../benchmark_variants', benchmark_variants_link)
 
     tags = dominate.tags
     title = 'Comparison of ({}) on {}'.format(', '.join(variants), benchmark_dir)
@@ -3320,7 +3321,10 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=()):
         # end: with tags.div(cls='body')
     # end: with doc
 
-    util.file.dump_file(os.path.join(out_dir, 'index.html'), doc.render())
+    if not cgi:
+        util.file.dump_file(os.path.join(out_dir, 'index.html'), doc.render())
+    else:
+        print(doc.render())
     _log.info('Wrote cmp to %s', out_dir)
 # end: def diff_analyses_html(benchmark_dir, variants, key_prefixes=())
 
