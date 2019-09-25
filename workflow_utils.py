@@ -1901,6 +1901,11 @@ def generate_benchmark_variant_dirs(benchmarks_spec_file, one_benchmark_dir=None
         for benchmark_dir in benchmark_dirs:
             for benchmark_variant_name, benchmark_variant_def in benchmarks_spec['benchmark_variants'].items():
                 if one_benchmark_variant and benchmark_variant_name != one_benchmark_variant: continue
+                
+                if 'benchmark_variant_frame' in benchmarks_spec:
+                    benchmark_variant_def = benchmarks_spec['benchmark_variant_frame'].replace('BENCHMARK_VARIANT_DEF',
+                                                                                               benchmark_variant_def)
+
                 _generate_benchmark_variant(benchmarks_spec_dir, benchmark_dir, benchmark_variant_name,
                                             benchmark_variant_def, git_annex_tool, copy_to=copy_to)
 
@@ -2035,7 +2040,7 @@ def submit_benchmark_variant_dirs(benchmarks_spec_file, backend='Local', copy_to
 
     git_annex_tool = tools.git_annex.GitAnnexTool()
     for benchmark_dir in benchmark_dirs:
-        for benchmark_variant_name, benchmark_variant_def in benchmarks_spec['benchmark_variants'].items():
+        for benchmark_variant_name in benchmarks_spec['benchmark_variants']:
             analysis_dir = os.path.join(benchmark_dir, 'benchmark_variants', benchmark_variant_name)
             try:
                 _submit_prepared_analysis(analysis_dir=analysis_dir,
