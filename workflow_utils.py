@@ -2332,6 +2332,10 @@ def generate_benchmark_variant_comparisons_from_gathered_metrics(benchmarks_spec
     os.symlink(os.path.relpath(benchmarks_root, cmp_output_dir), os.path.join(cmp_output_dir, 'benchmarks_root'))
 
     def make_url_for_pairwise_comparison(benchmark_dir, variant_0, variant_1):
+        return \
+            '/cgi-bin/show_benchmark_diff_page.sh?' \
+            'benchmark_dir={}&variant_0={}&variant_1={}'.format(os.path.relpath(benchmark_dir, benchmarks_root),
+                                                                variant_0, variant_1)
         url = os.path.join('benchmarks_root', os.path.relpath(benchmark_dir, benchmarks_root), 'cmp', variant_0, variant_1,
                            'index.html')
         if not os.path.isfile(os.path.join(cmp_output_dir, url)):
@@ -3310,10 +3314,13 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
                                         orig_val = functools.reduce(lambda d, k: d.get(k, None), key, mdata)
                                         if _is_git_link(orig_val):
                                             fname = os.path.relpath(orig_val['$git_link'], analysis_dir)
-                                            href_rel = os.path.join('.', 'benchmark_variants', variant, fname)
+                                            href_rel = os.path.join('/', benchmark_dir, 'benchmark_variants', variant, fname)
                                             _log.info('HREF_REL=%d %s', len(href_rel), str(href_rel))
                                             if fname.endswith('.pdf'):
                                                 tags.object_(data=href_rel, type='application/pdf', width='100%', height='100%')
+                                            elif False and fname.endswith('.html'):
+                                                #tags.object_(data=href_rel, type='text/html', width='100%', height='100%')
+                                                tags.iframe(src=href_rel, width='100%', height='200%')
                                             else:
                                                 tags.a(os.path.basename(fname),
                                                        href=href_rel)
@@ -3355,6 +3362,7 @@ __commands__.append(('diff_analyses_org', parser_diff_analyses_org))
 def parser_diff_analyses_html(parser=argparse.ArgumentParser()):
     parser.add_argument('benchmark_dir', help='the benchmark dir')
     parser.add_argument('variants', nargs='+', help='the benchmark variants')
+    parser.add_argument('cgi', default='False', action='store_true', help='running under cgi')
     parser.add_argument('--keyPrefixes', dest='key_prefixes', nargs='+',
                         help='only consider metadata items starting with these prefixes')
     util.cmd.attach_main(parser, diff_analyses_html, split_args=True)
