@@ -3291,45 +3291,55 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
         tags.div(cls='header').add(txt(datetime.datetime.now()))
         with tags.div(cls='body'):
             tags.h1(title)
-            with tags.table():
-                tags.thead(trow(['key'] + variants, tags.th))
-                with tags.tbody():
-                    for key in all_keys:
-                        if key[0] == 'calls': continue
-                        if key[0] == 'labels' and key[1] not in ('docker_img', 'sample_name'):
-                            continue
-                        if key[0] in ('runInputs', 'workflowProcessingEvents'): continue
-                        key_str = '.'.join(map(str, key))
-                        if key_str in ('analysis_dir', 'end', 'id', 'start', 'submission',
-                                       'submittedFiles.inputs', 'submittedFiles.labels',
-                                       'workflowRoot', 'runInputs'):
-                            continue
-                        vals = [flat_mdata.get(key, None) for flat_mdata in flat_mdatas]
-                        if len(set(vals)) > 1:
-                            with tags.tr():
-                                tags.td(key_str)
-                                for variant, val, mdata, analysis_dir in \
-                                    zip(variants, vals, mdatas, analysis_dirs):
-                                    with tags.td():
-                                        orig_val = functools.reduce(lambda d, k: d.get(k, None), key, mdata)
-                                        if _is_git_link(orig_val):
-                                            fname = os.path.relpath(orig_val['$git_link'], analysis_dir)
-                                            href_rel = os.path.join('/', benchmark_dir, 'benchmark_variants', variant, fname)
-                                            _log.info('HREF_REL=%d %s', len(href_rel), str(href_rel))
-                                            if fname.endswith('.pdf'):
-                                                tags.object_(data=href_rel, type='application/pdf', width='100%', height='100%')
-                                            elif False and fname.endswith('.html'):
-                                                #tags.object_(data=href_rel, type='text/html', width='100%', height='100%')
-                                                tags.iframe(src=href_rel, width='100%', height='200%')
+            def _emit_table(show_differing):
+                tags.h2('Differences' if show_differing else 'Non-differences')
+                with tags.table():
+                    tags.thead(trow(['key'] + variants, tags.th))
+                    with tags.tbody():
+                        for key in all_keys:
+                            if key[0] == 'calls': continue
+                            if key[0] == 'labels' and key[1] not in ('docker_img', 'sample_name'):
+                                continue
+                            if key[0] in ('runInputs', 'workflowProcessingEvents'): continue
+                            key_str = '.'.join(map(str, key))
+                            if key_str in ('analysis_dir', 'end', 'id', 'start', 'submission',
+                                           'submittedFiles.inputs', 'submittedFiles.labels',
+                                           'workflowRoot', 'runInputs'):
+                                continue
+                            if key_str.startswith('submittedFiles.imports'): continue
+                            vals = [flat_mdata.get(key, None) for flat_mdata in flat_mdatas]
+                            if show_differing == (len(set(vals)) > 1):
+                                with tags.tr():
+                                    tags.td(key_str)
+                                    for variant, val, mdata, analysis_dir in \
+                                        zip(variants, vals, mdatas, analysis_dirs):
+                                        with tags.td():
+                                            try:
+                                                orig_val = functools.reduce(lambda d, k: d.get(k, None) if _is_mapping(d) else d[k],
+                                                                            key, mdata)
+                                            except AttributeError:
+                                                raise RuntimeError('could not get key {}'.format(key))
+                                            if _is_git_link(orig_val):
+                                                fname = os.path.relpath(orig_val['$git_link'], analysis_dir)
+                                                href_rel = os.path.join('/', benchmark_dir, 'benchmark_variants', variant, fname)
+                                                _log.info('HREF_REL=%d %s', len(href_rel), str(href_rel))
+                                                if fname.endswith('.pdf'):
+                                                    tags.object_(data=href_rel, type='application/pdf', width='100%', height='100%')
+                                                elif False and fname.endswith('.html'):
+                                                    #tags.object_(data=href_rel, type='text/html', width='100%', height='100%')
+                                                    tags.iframe(src=href_rel, width='100%', height='200%')
+                                                else:
+                                                    tags.a(os.path.basename(fname),
+                                                           href=href_rel)
                                             else:
-                                                tags.a(os.path.basename(fname),
-                                                       href=href_rel)
-                                        else:
-                                            txt(val)
-                        # end: if len(set(vals)) > 1
-                    # end: for key in all_keys
-                # end: with tags.tbody()
-            # end: with tags.table()
+                                                txt(val)
+                            # end: if len(set(vals)) > 1
+                        # end: for key in all_keys
+                    # end: with tags.tbody()
+                # end: with tags.table()
+            # def _emit_table(show_differing)
+            _emit_table(show_differing=True)
+            _emit_table(show_differing=False)
         # end: with tags.div(cls='body')
     # end: with doc
 
