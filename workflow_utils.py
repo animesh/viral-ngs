@@ -146,6 +146,7 @@ import tools.gcloud
 import tools.docker
 import tools.cromwell
 import tools.muscle
+import reports
 
 _log = logging.getLogger(__name__)
 
@@ -3283,6 +3284,7 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
         tags.meta(http_equiv="pragma", content="no-cache")
         tags.style('table, th, td {border: 1px solid black;}')
         tags.style('th {background-color: lightgray;}')
+        tags.script(src='https://www.brainbell.com/javascript/download/resizable.js')
 
     def txt(v): return dominate.util.text(str(v))
     def trow(vals, td_or_th=tags.td): return tags.tr((td_or_th(txt(val)) for val in vals), __pretty=False)
@@ -3291,10 +3293,14 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
         tags.div(cls='header').add(txt(datetime.datetime.now()))
         with tags.div(cls='body'):
             tags.h1(title)
-            def _emit_table(show_differing):
+            def _show_analysis_keys_values(show_differing):
+                """Emit an HTML table showing analysis keys (inputs/outputs/metrics) and their values.
+                If `show_differing` is True, include keys whose values differ between the benchmark variants
+                being compared, else include keys whose values don't differ."""
+
                 tags.h2('Differences' if show_differing else 'Non-differences')
-                with tags.table():
-                    tags.thead(trow(['key'] + variants, tags.th))
+                with tags.table(id='kv_{}'.format(int(show_differing))):
+                    tags.thead(trow(['key'] + variants + ['cmp'], tags.th))
                     with tags.tbody():
                         for key in all_keys:
                             if key[0] == 'calls': continue
@@ -3310,7 +3316,8 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
                             vals = [flat_mdata.get(key, None) for flat_mdata in flat_mdatas]
                             if show_differing == (len(set(vals)) > 1):
                                 with tags.tr():
-                                    tags.td(key_str)
+                                    tags.td(key_str.replace('.', ' '))
+                                    fastas = []
                                     for variant, val, mdata, analysis_dir in \
                                         zip(variants, vals, mdatas, analysis_dirs):
                                         with tags.td():
@@ -3324,22 +3331,41 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
                                                 href_rel = os.path.join('/', benchmark_dir, 'benchmark_variants', variant, fname)
                                                 _log.info('HREF_REL=%d %s', len(href_rel), str(href_rel))
                                                 if fname.endswith('.pdf'):
-                                                    tags.object_(data=href_rel, type='application/pdf', width='100%', height='100%')
+                                                    tags.object_(data=href_rel, type='application/pdf', width='100%', height='250%')
+                                                elif fname.endswith('.fasta'):
+                                                    fastas.append(href_rel[1:])
+                                                    tags.a(os.path.basename(fname),
+                                                           href=href_rel)
                                                 elif False and fname.endswith('.html'):
                                                     #tags.object_(data=href_rel, type='text/html', width='100%', height='100%')
-                                                    tags.iframe(src=href_rel, width='100%', height='200%')
+                                                    tags.iframe(src=href_rel, width='100%', height='50%',
+                                                                scrolling="no", frameborder="0")
                                                 else:
                                                     tags.a(os.path.basename(fname),
                                                            href=href_rel)
                                             else:
                                                 txt(val)
+                                    if len(fastas) > 1:
+                                        with tags.td():
+                                            tags.a('align',
+                                                   href='/cgi-bin/show_fastas_diff_page.sh?fasta_0={}&fasta_1={}'.format(*fastas))
+                                    else:
+                                        tags.td('')
                             # end: if len(set(vals)) > 1
                         # end: for key in all_keys
                     # end: with tags.tbody()
                 # end: with tags.table()
-            # def _emit_table(show_differing)
-            _emit_table(show_differing=True)
-            _emit_table(show_differing=False)
+            # def _show_analysis_keys_values(show_differing)
+            for show_differing in (True, False):
+                _show_analysis_keys_values(show_differing=show_differing)
+
+            tags.script(dominate.util.raw('''
+            var tables = document.getElementsByTagName('table');
+            for (var i=0; i<tables.length;i++){
+               resizableGrid(tables[i]);
+            }
+            '''))
+
         # end: with tags.div(cls='body')
     # end: with doc
 
@@ -3380,6 +3406,17 @@ def parser_diff_analyses_html(parser=argparse.ArgumentParser()):
 
 __commands__.append(('diff_analyses_html', parser_diff_analyses_html))
 
+
+def diff_fastas_html(fastas):
+    """Compute and show a multiple align of the given fastas in html"""
+    #tags = dominate.tags
+    #doc = dominate.document(title=title)
+
+    fastas = tuple(fastas)
+    with util.file.tmp_dir(suffix='fastas_align') as t_dir:
+        aligns_fname = os.path.join(t_dir, 'aligns')
+        reports.alignment_summary(fastas[0], fastas[1], saveAlignsTo=aligns_fname)
+        print(util.file.slurp_file(aligns_fname+'.0.html'))
 
 
 def diff_jsons(jsons, key_prefixes=()):
