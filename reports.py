@@ -2,6 +2,8 @@
 ''' Functions to create reports from genomics pipeline data.
 '''
 
+from __future__ import print_function
+
 __author__ = "dpark@broadinstitute.org"
 __commands__ = []
 
@@ -245,7 +247,7 @@ def coverage_only(mapped_bams, out_report, cov_thresholds=(1, 5, 20, 100)):
 __commands__.append(('coverage_only', parser_coverage_only))
 
 
-def alignment_summary(inFastaFileOne, inFastaFileTwo, outfileName=None, printCounts=False, saveAlignsTo=None):
+def alignment_summary(inFastaFileOne, inFastaFileTwo, outfileName=None, printCounts=False, saveAlignsTo=None, printFn=print):
     """ Write or print pairwise alignment summary information for sequences in two FASTA
         files, including SNPs, ambiguous bases, and indels.
     """
@@ -318,15 +320,15 @@ def alignment_summary(inFastaFileOne, inFastaFileTwo, outfileName=None, printCou
                     indel_ambig += 1
 
         if printCounts:
-            print("Counts for this segment/chromosome:")
-            print("same_unambig ", same_unambig)
-            print("snp_unambig  ", snp_unambig)
-            print("indel_unambig", indel_unambig)
-            print("indel_ambig  ", indel_ambig)
-            print("ambig_one    ", ambig_one)
-            print("ambig_two    ", ambig_two)
-            print("ambig_both   ", ambig_both)
-            print("unambig_both ", unambig_both)
+            printFn("Counts for this segment/chromosome:")
+            printFn("same_unambig ", same_unambig)
+            printFn("snp_unambig  ", snp_unambig)
+            printFn("indel_unambig", indel_unambig)
+            printFn("indel_ambig  ", indel_ambig)
+            printFn("ambig_one    ", ambig_one)
+            printFn("ambig_two    ", ambig_two)
+            printFn("ambig_both   ", ambig_both)
+            printFn("unambig_both ", unambig_both)
 
         results["same_unambig"]  += same_unambig
         results["snp_unambig"]   += snp_unambig
@@ -338,15 +340,15 @@ def alignment_summary(inFastaFileOne, inFastaFileTwo, outfileName=None, printCou
         results["unambig_both"]  += unambig_both
 
     if printCounts:
-        print("\nCounts for this sample:")
-        print("same_unambig ", results["same_unambig"])
-        print("snp_unambig  ", results["snp_unambig"])
-        print("indel_unambig", results["indel_unambig"])
-        print("indel_ambig  ", results["indel_ambig"])
-        print("ambig_one    ", results["ambig_one"])
-        print("ambig_two    ", results["ambig_two"])
-        print("ambig_both   ", results["ambig_both"])
-        print("unambig_both ", results["unambig_both"])
+        printFn("\nCounts for this sample:")
+        printFn("same_unambig ", results["same_unambig"])
+        printFn("snp_unambig  ", results["snp_unambig"])
+        printFn("indel_unambig", results["indel_unambig"])
+        printFn("indel_ambig  ", results["indel_ambig"])
+        printFn("ambig_one    ", results["ambig_one"])
+        printFn("ambig_two    ", results["ambig_two"])
+        printFn("ambig_both   ", results["ambig_both"])
+        printFn("unambig_both ", results["unambig_both"])
 
     if outfileName:
         with open(outfileName, "wt") as of:
