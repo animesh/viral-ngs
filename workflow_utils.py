@@ -3292,7 +3292,14 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
     with doc:
         tags.div(cls='header').add(txt(datetime.datetime.now()))
         with tags.div(cls='body'):
-            tags.h1(title)
+            with tags.h1('Comparison of ('):
+                for i, variant in enumerate(variants):
+                    if i > 0:
+                        txt(', ')
+                    tags.a(variant, href=os.path.join('/', benchmark_dir, 'benchmark_variants', variant))
+                txt(') on ')
+                tags.a(benchmark_dir, href=os.path.join('/', benchmark_dir))
+                    
             def _show_analysis_keys_values(show_differing):
                 """Emit an HTML table showing analysis keys (inputs/outputs/metrics) and their values.
                 If `show_differing` is True, include keys whose values differ between the benchmark variants
