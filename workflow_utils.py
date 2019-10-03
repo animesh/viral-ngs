@@ -3283,9 +3283,10 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
         for mdata in mdatas[:1]:
             
             for call_name, call_data in mdata.get('calls', {}).items():
-                for output in call_data[-1]['outputs']:
-                    key2order[('outputs', call_name + '.' + output)] = ('outputs', call_data[-1]['end'],
-                                                                 call_name, output)
+                for inp_out in ('inputs', 'outputs'):
+                    for output in call_data[-1][inp_out]:
+                        key2order[(inp_out, call_name + '.' + output)] = (inp_out, call_data[-1]['end'],
+                                                                          call_name, output)
         return key2order
     key2order = compute_stage_keys(mdatas)
     def my_key(k):
@@ -3372,12 +3373,37 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
                                                            href=href_rel)
                                             else:
                                                 txt(val)
-                                    if len(fastas) > 1:
-                                        with tags.td():
+
+                                    with tags.td():
+                                        def _get_diff(vals, as_type):
+                                            if len(vals) == 2:
+                                                try:
+                                                    return as_type(str(vals[1])) - as_type(str(vals[0]))
+                                                except Exception as e:
+                                                    pass
+                                        if len(fastas) > 1:
                                             tags.a('align',
                                                    href='/cgi-bin/show_fastas_diff_page.sh?fasta_0={}&fasta_1={}'.format(*fastas))
-                                    else:
-                                        tags.td('')
+                                        elif _get_diff(vals, int) is not None:
+                                            txt(_get_diff(vals, int))
+                                        elif _get_diff(vals, float) is not None:
+                                            txt(_get_diff(vals, float))
+                                        elif key_str == 'labels.docker_img' and len(vals) == 2:
+                                            def _docker_tag_to_git_tag(docker_tag):
+                                                git_tag_re = 'quay.io/broadinstitute/viral-ngs-dev:\d+\.\d+\.\d+-\d+-g' \
+                                                    '([0-9a-z]{7})-[0-9a-z.-]+'
+                                                m = re.fullmatch(git_tag_re, docker_tag)
+                                                if m: return m.group(1)
+                                                git_tag_re = 'quay.io/broadinstitute/viral-ngs:(\d+\.\d+\.\d+)'
+                                                m = re.fullmatch(git_tag_re, docker_tag)
+                                                if m: return 'v'+m.group(1)
+
+                                            git_tag_matches = list(map(_docker_tag_to_git_tag, vals))
+                                            if all(git_tag_matches):
+                                                tags.a('diff',
+                                                       href='https://github.com/broadinstitute/viral-ngs/compare/' \
+                                                       '{}..{}'.format(*git_tag_matches))
+
                             # end: if len(set(vals)) > 1
                         # end: for key in all_keys
                     # end: with tags.tbody()
