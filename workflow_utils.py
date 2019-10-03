@@ -3277,7 +3277,22 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
               for analysis_dir in analysis_dirs]
     flat_mdatas = [_flatten_analysis_metadata(mdata, key_prefixes=key_prefixes) for mdata in mdatas]
 
-    all_keys = sorted(set(itertools.chain.from_iterable(flat_mdatas)))
+
+    def compute_stage_keys(mdatas):
+        key2order = {}
+        for mdata in mdatas[:1]:
+            
+            for call_name, call_data in mdata.get('calls', {}).items():
+                for output in call_data[-1]['outputs']:
+                    key2order[('outputs', call_name + '.' + output)] = ('outputs', call_data[-1]['end'],
+                                                                 call_name, output)
+        return key2order
+    key2order = compute_stage_keys(mdatas)
+    def my_key(k):
+        new_k = key2order.get(k, k)
+        return new_k
+    all_keys = sorted(set(itertools.chain.from_iterable(flat_mdatas)),
+                      key=my_key)
 
     with doc.head:
         tags.meta(http_equiv="Expires", content="Thu, 1 June 2000 23:59:00 GMT")
@@ -3299,6 +3314,11 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
                     tags.a(variant, href=os.path.join('/', benchmark_dir, 'benchmark_variants', variant))
                 txt(') on ')
                 tags.a(benchmark_dir, href=os.path.join('/', benchmark_dir))
+
+            # with tags.h2():
+            #     with tags.ul():
+            #         for k, v in key2order.items():
+            #             tags.li(txt('{}: {}'.format(k, v)))
                     
             def _show_analysis_keys_values(show_differing):
                 """Emit an HTML table showing analysis keys (inputs/outputs/metrics) and their values.
@@ -3323,7 +3343,7 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
                             vals = [flat_mdata.get(key, None) for flat_mdata in flat_mdatas]
                             if show_differing == (len(set(vals)) > 1):
                                 with tags.tr():
-                                    tags.td(key_str.replace('.', ' '))
+                                    tags.td(key_str)
                                     fastas = []
                                     for variant, val, mdata, analysis_dir in \
                                         zip(variants, vals, mdatas, analysis_dirs):
