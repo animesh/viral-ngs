@@ -175,6 +175,9 @@ class SamtoolsTool(tools.Tool):
     def idxstats(self, inBam, statsFile):
         self.execute('idxstats', [inBam], stdout=statsFile)
 
+    def flagstat(self, inBam, statsFile):
+        self.execute('flagstat', [inBam], stdout=statsFile)
+
     def reheader(self, inBam, headerFile, outBam):
         self.execute('reheader', [headerFile, inBam], stdout=outBam)
 

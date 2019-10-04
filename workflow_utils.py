@@ -146,6 +146,7 @@ import tools.gcloud
 import tools.docker
 import tools.cromwell
 import tools.muscle
+import tools.samtools
 import reports
 
 _log = logging.getLogger(__name__)
@@ -3346,6 +3347,7 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
                                 with tags.tr():
                                     tags.td(key_str)
                                     fastas = []
+                                    bams = []
                                     for variant, val, mdata, analysis_dir in \
                                         zip(variants, vals, mdatas, analysis_dirs):
                                         with tags.td():
@@ -3358,12 +3360,12 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
                                                 fname = os.path.relpath(orig_val['$git_link'], analysis_dir)
                                                 href_rel = os.path.join('/', benchmark_dir, 'benchmark_variants', variant, fname)
                                                 _log.info('HREF_REL=%d %s', len(href_rel), str(href_rel))
+                                                if fname.endswith('.fasta'):
+                                                    fastas.append(href_rel[1:])
+                                                if fname.endswith('.bam'):
+                                                    bams.append(href_rel[1:])
                                                 if fname.endswith('.pdf'):
                                                     tags.object_(data=href_rel, type='application/pdf', width='100%', height='250%')
-                                                elif fname.endswith('.fasta'):
-                                                    fastas.append(href_rel[1:])
-                                                    tags.a(os.path.basename(fname),
-                                                           href=href_rel)
                                                 elif False and fname.endswith('.html'):
                                                     #tags.object_(data=href_rel, type='text/html', width='100%', height='100%')
                                                     tags.iframe(src=href_rel, width='100%', height='50%',
@@ -3384,6 +3386,9 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
                                         if len(fastas) > 1:
                                             tags.a('align',
                                                    href='/cgi-bin/show_fastas_diff_page.sh?fasta_0={}&fasta_1={}'.format(*fastas))
+                                        if len(bams) > 1:
+                                            tags.a('diff stats',
+                                                   href='/cgi-bin/show_bams_stats_diff_page.sh?bam_0={}&bam_1={}'.format(*bams))
                                         elif _get_diff(vals, int) is not None:
                                             txt(_get_diff(vals, int))
                                         elif _get_diff(vals, float) is not None:
@@ -3471,6 +3476,36 @@ def diff_fastas_html(fastas):
         reports.alignment_summary(fastas[0], fastas[1], saveAlignsTo=aligns_fname)
         print(util.file.slurp_file(aligns_fname+'.0.html'))
 
+def diff_bam_stats_html(bams):
+    """Show bam stats diffs"""
+    tags = dominate.tags
+    title = 'Comparison of ({})'.format(', '.join(bams))
+    doc = dominate.document(title=title)
+    def trow(vals, td_or_th=tags.td): return tags.tr((td_or_th(txt(val)) for val in vals), __pretty=False)
+    def txt(v): return dominate.util.text(str(v))
+    
+    with doc.head:
+        tags.meta(http_equiv="Expires", content="Thu, 1 June 2000 23:59:00 GMT")
+        tags.meta(http_equiv="pragma", content="no-cache")
+        tags.style('table, th, td {border: 1px solid black;}')
+        tags.style('th {background-color: lightgray;}')
+
+    samtools_tool = tools.samtools.SamtoolsTool()
+
+    with doc:
+        tags.div(cls='header').add(txt(datetime.datetime.now()))
+        with tags.div(cls='body'):
+            with util.file.tempfnames(suffixes=('bam0', 'bam1')) as stats_files:
+                with tags.table():
+                    tags.thead(trow(bams, tags.th))
+                    with tags.tbody():
+                        with tags.tr():
+                            for bam, stats_file in zip(bams, stats_files):
+                                with tags.td():
+                                    with tags.pre():
+                                        samtools_tool.flagstat(bam, stats_file)
+                                        txt(util.file.slurp_file(stats_file))
+    print(doc.render())
 
 def diff_jsons(jsons, key_prefixes=()):
     """Print differences between two analysis dirs."""
