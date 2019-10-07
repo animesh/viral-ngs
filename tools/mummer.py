@@ -234,7 +234,7 @@ class MummerTool(tools.Tool):
             min_contig_len=min_contig_len,
             min_contig_coverage_diff=min_contig_coverage_diff,
             min_pct_contig_aligned=min_pct_contig_aligned)
-        os.unlink(delta_1)
+        util.file.unlink_tempfile(delta_1)
 
         # load intervals into a FeatureSorter
         fs = util.misc.FeatureSorter()
@@ -256,7 +256,7 @@ class MummerTool(tools.Tool):
                     alt_seq[0], alt_seq[1], alt_seq[2],
                     s
                 ))
-        os.unlink(tiling)
+        util.file.unlink_tempfile(tiling)
 
         # load all contig-to-ref alignments into AlignsReaders
         alnReaders = {}
@@ -270,8 +270,8 @@ class MummerTool(tools.Tool):
                 with open(aln_file, 'wt') as outf:
                     subprocess.check_call(toolCmd, stdout=outf)
                 alnReaders[chr_pair] = AlignsReader(aln_file, refFasta)
-        os.unlink(aln_file)
-        os.unlink(delta_2)
+        util.file.unlink_tempfile(aln_file)
+        util.file.unlink_tempfile(delta_2)
 
         # for each chromosome, create the scaffolded sequence and write everything to fasta
         alternate_contigs = []
@@ -370,7 +370,7 @@ class MummerTool(tools.Tool):
 
         # cleanup
         for fn in (delta_1, delta_2, aln_file):
-            os.unlink(fn)
+            util.file.unlink_tempfile(fn)
 
 def contig_chooser(alt_seqs, ref_len, coords_debug=""):
     ''' Our little heuristic to choose an alternative sequence from a pile
