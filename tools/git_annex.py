@@ -239,13 +239,23 @@ class GitAnnexTool(tools.Tool):
                 subprocess_call_args.update(stdout=subprocess.PIPE)
 
             _log.debug('CALLING SUBPROCESS RUN in %s: %s %s', batch.cwd, batch.tool_cmd, subprocess_call_args)
-            try:
-                result = subprocess.run(batch.tool_cmd, check=True, cwd=batch.cwd, universal_newlines=True,
-                                        env=self._get_run_env(), **subprocess_call_args)
-                _log.debug('RETURNED FROM SUBPROCESS RUN: %s %s %s', batch.tool_cmd, subprocess_call_args, result)
-            except Exception as e:
-                _log.debug('FAILED SUBPROCESS RUN: %s %s %s', e, batch.tool_cmd, subprocess_call_args)
-                raise
+            run_done = False
+            retries = 6 if batch.tool_cmd[1] in ('get', 'add', 'fromkey') else 0
+            sleep_time = 4
+            while not run_done:
+                try:
+                    result = subprocess.run(batch.tool_cmd, check=True, cwd=batch.cwd, universal_newlines=True,
+                                            env=self._get_run_env(), **subprocess_call_args)
+                    _log.debug('RETURNED FROM SUBPROCESS RUN: %s %s %s', batch.tool_cmd, subprocess_call_args, result)
+                    run_done = True
+                except Exception as e:
+                    _log.debug('FAILED SUBPROCESS RUN: %s %s %s retries left %d', e, batch.tool_cmd, subprocess_call_args, retries)
+                    if retries > 0:
+                        retries -= 1
+                        time.sleep(sleep_time)
+                        sleep_time *= 2
+                    else:
+                        raise
 
             if batch_calls[0].output_acceptor:
                 output = util.misc.maybe_decode(result.stdout).rstrip('\n')
@@ -415,7 +425,8 @@ class GitAnnexTool(tools.Tool):
     def add_dir(self, directory):
         """Add files in given directory to git-annex"""
         directory = os.path.abspath(directory)
-        retries = 2
+        retries = 6
+        sleep_time = 4
         while True:
             try:
                 return self.execute(['add'], cwd=directory)
@@ -423,7 +434,8 @@ class GitAnnexTool(tools.Tool):
                 if retries > 0:
                     _log.debug('add_dir: error %s, %d retries left', e, retries)
                     retries -= 1
-                    time.sleep(5)
+                    time.sleep(sleep_time)
+                    sleep_time *= 2
                 else:
                     raise
 
