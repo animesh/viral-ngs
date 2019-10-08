@@ -2348,14 +2348,16 @@ def generate_benchmark_variant_comparisons_from_gathered_metrics(benchmarks_spec
         for variants in variant_pairs:
             with org.headline('={}= vs ={}='.format(variants[0], variants [1])):
 
-                org.text('={}= succeeded, ={}= failed: {}'.format(variants[0], variants[1],
-                                                                  sum((unified_metrics['status'][variants[0]]=='Succeeded') &
-                                                                      (unified_metrics['status'][variants[1]]=='Failed'))))
+                org.text('={}= succeeded, ' \
+                         '={}= failed: {}'.format(variants[0], variants[1],
+                                                  sum((unified_metrics['status'].get(variants[0], None) == 'Succeeded') &
+                                                      (unified_metrics['status'].get(variants[1], None) == 'Failed'))))
 
                 org.text('')
-                org.text('={}= succeeded, ={}= failed: {}'.format(variants[1], variants[0],
-                                                                  sum((unified_metrics['status'][variants[1]]=='Succeeded') &
-                                                                      (unified_metrics['status'][variants[0]]=='Failed'))))
+                org.text('={}= succeeded, ' \
+                         '={}= failed: {}'.format(variants[1], variants[0],
+                                                  sum((unified_metrics['status'].get(variants[1], None) == 'Succeeded') &
+                                                      (unified_metrics['status'].get(variants[0], None) == 'Failed'))))
                 org.text('')
 
                 for metric in benchmarks_spec['compare_metrics']:
@@ -2716,7 +2718,7 @@ def _gather_file_metadata_from_analysis_metadata(analysis_metadata, lcpath2fmdat
 @autologging.traced
 @autologging.logged
 def finalize_analysis_dirs(cromwell_host, hours_ago=24, analysis_dirs_roots=None, status_only=False,
-                           repeat=False, repeat_delay=120, copy_to=None):
+                           repeat=False, repeat_delay=120, copy_to=None, retries=6):
     """After a submitted cromwell analysis has finished, save results to the analysis dir.
     Save metadata, mark final workflow result, make paths relative to analysis dir."""
     cromwell_server = CromwellServer(host=cromwell_host)
@@ -2795,7 +2797,7 @@ def finalize_analysis_dirs(cromwell_host, hours_ago=24, analysis_dirs_roots=None
                         _run('rm -rf call-*/tmp.*', cwd=workflow_root)
                         git_annex_tool.add_dir(workflow_root)
                         if copy_to:
-                            _run('git annex copy . --to={}'.format(copy_to), cwd=workflow_root, retries=3)
+                            _run('git annex copy . --to={}'.format(copy_to), cwd=workflow_root, retries=retries)
 
                     if not os.path.lexists(mdata_fname):
                         _log.info('saving mdata: %s', mdata_fname)
@@ -2804,13 +2806,13 @@ def finalize_analysis_dirs(cromwell_host, hours_ago=24, analysis_dirs_roots=None
                         util.misc.chk(os.path.isdir(mdata_dir), 'missing dir {}'.format(mdata_dir))
                         _write_json(mdata_fname, **mdata)
                         _log.info('ABOUT TO ADD: cwd=%s', os.getcwd())
-                        _run('git annex add {}'.format(mdata_fname), cwd=mdata_dir, retries=3)
+                        _run('git annex add {}'.format(mdata_fname), cwd=mdata_dir, retries=retries)
                         if copy_to:
-                            _run('git annex copy {} --to={}'.format(mdata_fname, copy_to), cwd=mdata_dir, retries=3)
+                            _run('git annex copy {} --to={}'.format(mdata_fname, copy_to), cwd=mdata_dir, retries=retries)
                         logs_dir = os.path.join(analysis_dir, 'files', 'logs')
                         git_annex_tool.add_dir(logs_dir)
                         if copy_to:
-                            _run('git annex copy . --to={}'.format(copy_to), cwd=logs_dir, retries=3)
+                            _run('git annex copy . --to={}'.format(copy_to), cwd=logs_dir, retries=retries)
 
                     _log.info('AFTER SAVING %s cwd is %s', mdata_fname, os.getcwd())
 
@@ -2830,9 +2832,9 @@ def finalize_analysis_dirs(cromwell_host, hours_ago=24, analysis_dirs_roots=None
                     mdata_rel = util.misc.transform_json_data(mdata_rel, functools.partial(util.misc.maybe_wait_for_result, timeout=300))
 
                     _write_json(mdata_rel_fname, **mdata_rel)
-                    _run('git annex add {}'.format(mdata_rel_fname), cwd=os.path.dirname(mdata_rel_fname), retries=3)
+                    _run('git annex add {}'.format(mdata_rel_fname), cwd=os.path.dirname(mdata_rel_fname), retries=retries)
                     if copy_to:
-                        _run('git annex copy {} --to={}'.format(mdata_rel_fname, copy_to), cwd=workflow_root, retries=3)
+                        _run('git annex copy {} --to={}'.format(mdata_rel_fname, copy_to), cwd=workflow_root, retries=retries)
                     _log.info('Wrote metadata to %s and %s', mdata_fname, mdata_rel_fname)
                     processing_stats['saved_metata'] += 1
         _log.info('Processing stats: %s', str(processing_stats))
@@ -2844,8 +2846,8 @@ def finalize_analysis_dirs(cromwell_host, hours_ago=24, analysis_dirs_roots=None
         if not repeat or (status_stats['Running'] + status_stats['Submitted']) == 0:
             _log.info('finalize_analysis_dirs: finished! exiting')
             break
-        _run('git commit -m "added benchmarks"', retries=2, ignore_failures=True)
-        _run('git annex sync --message="added benchmarks"', retries=2)
+        _run('git commit -m "added benchmarks"', retries=retries, ignore_failures=True)
+        _run('git annex sync --message="added benchmarks"', retries=retries)
         _log.info('finalize_analysis_dirs repeat: sleeping for %s', repeat_delay)
         time.sleep(repeat_delay)
 # end: def finalize_analysis_dirs(cromwell_host, hours_ago=24, analysis_dirs_roots=None, status_only=False,
