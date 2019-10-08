@@ -129,6 +129,13 @@ def mkstempfname(suffix='', prefix='tmp', directory=None, text=False):
     os.close(fd)
     return fn
 
+def unlink_tempfile(fname):
+    """Unlink the given file if present and if we are not keeping temp files for debug purposes"""
+    if os.path.isfile(fname):
+        if keep_tmp():
+            log.debug('keeping tempfile %s', fname)
+        else:
+            os.unlink(fname)
 
 @contextlib.contextmanager
 def tempfname(*args, **kwargs):
@@ -139,9 +146,7 @@ def tempfname(*args, **kwargs):
     try:
         yield fn
     finally:
-        if os.path.isfile(fn) and not keep_tmp():
-            os.unlink(fn)
-
+        unlink_tempfile(fn)
 
 @contextlib.contextmanager
 def tempfnames(suffixes, *args, **kwargs):
@@ -152,10 +157,8 @@ def tempfnames(suffixes, *args, **kwargs):
     try:
         yield fns
     finally:
-        if  not keep_tmp():
-            for fn in fns:
-                if os.path.isfile(fn):
-                    os.unlink(fn)
+        for fn in fns:
+            unlink_tempfile(fn)
 
 @contextlib.contextmanager
 def tmp_dir(*args, **kwargs):
