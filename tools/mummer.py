@@ -3,6 +3,7 @@
     http://mummer.sourceforge.net/
 '''
 
+import csv
 import logging
 import tools
 import util.file
@@ -204,6 +205,25 @@ class MummerTool(tools.Tool):
         os.unlink(delta_2)
         os.unlink(tiling)
 
+    def _show_coords(self, delta_fname, min_pct_id, min_pct_contig_aligned, min_contig_len):
+        """Load the results of mummer show-coords command"""
+        with util.file.tempfname(suffix='_show-coords') as coords_fname:
+            with open(coords_fname, 'wt') as outf:
+                toolCmd = [os.path.join(self.install_and_get_path(), 'show-coords'),
+                           '-T', '-H', '-c', '-d', '-I', str(min_pct_id), '-L', str(min_contig_len), '-r', '-l', str(delta_fname),
+                           '-o']
+                log.info('CALLLING: toolCmd=%s stdout=%s', toolCmd, outf)
+                try:
+                    subprocess.check_call(toolCmd, stdout=outf)
+                except Exception as e:
+                    log.info('FAILED TO RUN show-coords: %s', e)
+                    raise
+            with open(coords_fname) as f:
+                reader = csv.DictReader(f, delimiter='\t', fieldnames=('S1', 'E1', 'S2', 'E2', 'LEN 1', 'LEN 2', '% IDY',
+                                                                       'LEN R', 'LEN Q', 'COV R', 'COV Q', 'FROM_R',
+                                                                       'FROM_Q', 'ID_R', 'ID_Q', 'TAGS'))
+                return tuple(reader)
+
     def scaffold_contigs_custom(self, refFasta, contigsFasta, outFasta,
             outAlternateContigs=None,
             aligner='nucmer', extend=None, breaklen=None,
@@ -234,44 +254,70 @@ class MummerTool(tools.Tool):
             min_contig_len=min_contig_len,
             min_contig_coverage_diff=min_contig_coverage_diff,
             min_pct_contig_aligned=min_pct_contig_aligned)
-        os.unlink(delta_1)
+
+        util.file.unlink_tempfile(delta_1)
 
         # load intervals into a FeatureSorter
         fs = util.misc.FeatureSorter()
-        with util.file.open_or_gzopen(tiling, 'rU') as inf:
-            for line in inf:
-                row = line.rstrip('\n\r').split('\t')
-                c = row[11]
-                start, stop = (int(row[0]), int(row[1]))
-                alt_seq = (row[12], int(row[2]), int(row[3]))
-                if stop<start:
-                    raise ValueError()
-                if alt_seq[2]<alt_seq[1]:
-                    s = '-'
-                else:
-                    s = '+'
-                fs.add(c, start, stop, strand=s, other=alt_seq)
-                log.info("mummer alignment %s:%d-%d - %s:%d-%d (%s)" % (
-                    c, start, stop,
-                    alt_seq[0], alt_seq[1], alt_seq[2],
-                    s
-                ))
-        os.unlink(tiling)
+        
+        for row in self._show_coords(delta_fname=delta_2, min_pct_id=min_pct_id,
+                                     min_pct_contig_aligned=min_pct_contig_aligned, min_contig_len=min_contig_len):
+            c = row['ID_R']
+            start, stop = (int(row['S1']), int(row['E1']))
+            alt_seq = (row['ID_Q'], int(row['S2']), int(row['E2']))
+            if stop<start:
+                raise ValueError()
+            util.misc.chk(row['FROM_R'] == '1')
+            if row['FROM_Q'] == '-1':
+                s = '-'
+            else:
+                s = '+'
+            fs.add(c, start, stop, strand=s, other=alt_seq)
+            log.info("mummer alignment %s:%d-%d - %s:%d-%d (%s)" % (
+                c, start, stop,
+                alt_seq[0], alt_seq[1], alt_seq[2],
+                s
+            ))
+        if False:
+            with util.file.open_or_gzopen(tiling, 'rU') as inf:
+                for line in inf:
+                    row = line.rstrip('\n\r').split('\t')
+                    c = row[11]
+                    start, stop = (int(row[0]), int(row[1]))
+                    alt_seq = (row[12], int(row[2]), int(row[3]))
+                    if stop<start:
+                        raise ValueError()
+                    if alt_seq[2]<alt_seq[1]:
+                        s = '-'
+                    else:
+                        s = '+'
+                    fs.add(c, start, stop, strand=s, other=alt_seq)
+                    log.info("mummer alignment %s:%d-%d - %s:%d-%d (%s)" % (
+                        c, start, stop,
+                        alt_seq[0], alt_seq[1], alt_seq[2],
+                        s
+                    ))
+        util.file.unlink_tempfile(tiling)
+
 
         # load all contig-to-ref alignments into AlignsReaders
         alnReaders = {}
         aln_file = util.file.mkstempfname('.aligns')
+        log.info('looping over features %d', len(list(fs.get_features())))
         for c, start, stop, strand, other in fs.get_features():
+            log.info('FEATURE: %s', (c, start, stop, strand, other))
             chr_pair = (c, other[0])
             if chr_pair not in alnReaders:
                 toolCmd = [os.path.join(self.install_and_get_path(), 'show-aligns'),
                     '-r', delta_2, chr_pair[0], chr_pair[1]]
                 #log.debug(' '.join(toolCmd))
                 with open(aln_file, 'wt') as outf:
+                    log.info('calling %s with output to %s', ' '.join(toolCmd), aln_file)
+                    log.info('CALLLING: toolCmd=%s stdout=%s', toolCmd, outf)
                     subprocess.check_call(toolCmd, stdout=outf)
                 alnReaders[chr_pair] = AlignsReader(aln_file, refFasta)
-        os.unlink(aln_file)
-        os.unlink(delta_2)
+        util.file.unlink_tempfile(aln_file)
+        util.file.unlink_tempfile(delta_2)
 
         # for each chromosome, create the scaffolded sequence and write everything to fasta
         alternate_contigs = []
@@ -370,7 +416,7 @@ class MummerTool(tools.Tool):
 
         # cleanup
         for fn in (delta_1, delta_2, aln_file):
-            os.unlink(fn)
+            util.file.unlink_tempfile(fn)
 
 def contig_chooser(alt_seqs, ref_len, coords_debug=""):
     ''' Our little heuristic to choose an alternative sequence from a pile
