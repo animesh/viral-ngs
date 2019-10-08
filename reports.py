@@ -10,7 +10,7 @@ import logging
 import glob
 import os
 import time
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import csv
 import math
 import shutil
@@ -189,6 +189,7 @@ def parser_assembly_stats(parser=argparse.ArgumentParser()):
     parser.add_argument('--raw_reads_dir',
                         default='data/00_raw',
                         help='Directory with unaligned raw read BAMs. (default: %(default)s)')
+    util.cmd.common_args(parser, (('loglevel', None), ('version', None), ('tmp_dir', None)))
     util.cmd.attach_main(parser, assembly_stats, split_args=True)
     return parser
 
@@ -211,7 +212,7 @@ def parser_coverage_only(parser=argparse.ArgumentParser()):
                         type=int,
                         default=(1, 5, 20, 100),
                         help='Genome coverage thresholds to report on. (default: %(default)s)')
-    util.cmd.common_args(parser, (('loglevel', None), ('version', None)))
+    util.cmd.common_args(parser, (('loglevel', None), ('version', None), ('tmp_dir', None)))
     util.cmd.attach_main(parser, coverage_only, split_args=True)
     return parser
 def coverage_only(mapped_bams, out_report, cov_thresholds=(1, 5, 20, 100)):
@@ -355,6 +356,7 @@ def parser_alignment_summary(parser=argparse.ArgumentParser()):
     parser.add_argument('inFastaFileTwo', help='First fasta file for an alignment')
     parser.add_argument('--outfileName', help='Output file for counts in TSV format')
     parser.add_argument('--printCounts', help='', action='store_true')
+    util.cmd.common_args(parser, (('loglevel', None), ('version', None), ('tmp_dir', None)))
     util.cmd.attach_main(parser, alignment_summary, split_args=True)
     return parser
 __commands__.append(('alignment_summary', parser_alignment_summary))
@@ -385,6 +387,7 @@ def consolidate_fastqc(inDirs, outFile):
 def parser_consolidate_fastqc(parser=argparse.ArgumentParser()):
     parser.add_argument('inDirs', help='Input FASTQC directories.', nargs='+')
     parser.add_argument('outFile', help='Output report file.')
+    util.cmd.common_args(parser, (('loglevel', None), ('version', None), ('tmp_dir', None)))
     util.cmd.attach_main(parser, consolidate_fastqc, split_args=True)
     return parser
 
@@ -427,11 +430,11 @@ def get_earliest_date(inDir):
     return time.strftime("%Y-%m-%d", time.localtime(earliest))
 
 
-def consolidate_spike_count(inDir, outFile):
+def consolidate_spike_count(in_dir, out_file):
     '''Consolidate multiple spike count reports into one.'''
-    with open(outFile, 'wt') as outf:
-        for fn in os.listdir(inDir):
-            fn = os.path.join(inDir, fn)
+    with open(out_file, 'wt') as outf:
+        for fn in os.listdir(in_dir):
+            fn = os.path.join(in_dir, fn)
             s = os.path.basename(fn)
             if not s.endswith('.spike_count.txt'):
                 raise Exception()
@@ -444,13 +447,57 @@ def consolidate_spike_count(inDir, outFile):
 
 
 def parser_consolidate_spike_count(parser=argparse.ArgumentParser()):
-    parser.add_argument('inDir', help='Input spike count directory.')
-    parser.add_argument('outFile', help='Output report file.')
+    parser.add_argument('in_dir', metavar="inDir", help='Input spike count directory.')
+    parser.add_argument('out_file', metavar="outFile", help='Output report file.')
+    util.cmd.common_args(parser, (('loglevel', None), ('version', None), ('tmp_dir', None)))
     util.cmd.attach_main(parser, consolidate_spike_count, split_args=True)
     return parser
 
 
 __commands__.append(('consolidate_spike_count', parser_consolidate_spike_count))
+
+
+def aggregate_spike_count(in_dir, out_file):
+    '''aggregate multiple spike count reports into one.'''
+    spike_in_sample_counts = defaultdict(dict) # For a given spikein ID, map to sample name and corresponding count
+    samples_seen = []
+    with open(out_file, 'wt') as outf:
+        for fn in glob.glob(os.path.realpath(in_dir)+"/*.spike_count.txt"):# os.listdir():
+            #fn = os.path.join(in_dir, fn)
+            s = os.path.basename(fn)
+            if not s.endswith('.spike_count.txt'):
+                raise Exception()
+            if s.find('.spike_count.txt'):
+                s = s[:-len('.spike_count.txt')]
+            if s not in samples_seen:
+                samples_seen.append(s)
+            with open(fn, 'rt') as inf:
+                for line in inf:
+                    if not line.startswith('Input bam') and not line.startswith('*'):
+                        spike, count = [line.strip().split('\t')[i] for i in [0,2]]
+                        spike_in_sample_counts[spike][s] = count
+                        #outf.write('\t'.join([s, spike, count]) + '\n')
+        outf.write("\t".join(["spike-in"]+samples_seen)+"\n")
+        for spike in sorted(spike_in_sample_counts.keys()):
+            row = []
+            row.append(spike)
+            for s in samples_seen:
+                if s in spike_in_sample_counts[spike]:
+                    row.append(spike_in_sample_counts[spike][s])
+                else:
+                    row.append("0")
+            outf.write("\t".join(row)+"\n")
+
+
+def parser_aggregate_spike_count(parser=argparse.ArgumentParser()):
+    parser.add_argument('in_dir', metavar="inDir", help='Input spike count directory.')
+    parser.add_argument('out_file', metavar="outFile", help='Output report file.')
+    util.cmd.common_args(parser, (('loglevel', None), ('version', None), ('tmp_dir', None)))
+    util.cmd.attach_main(parser, aggregate_spike_count, split_args=True)
+    return parser
+
+
+__commands__.append(('aggregate_spike_count', parser_aggregate_spike_count))
 
 
 # =========================
@@ -549,7 +596,26 @@ def parser_plot_coverage_common(parser=argparse.ArgumentParser()):    # parser n
         type=int,
         help="The max coverage depth (default: %(default)s)"
     )
-    parser.add_argument('-l', dest="read_length_threshold", default=None, type=int, help="Read length threshold")
+    parser.add_argument('-l',
+        dest="read_length_threshold",
+        default=None,
+        type=int,
+        help="Read length threshold"
+    )
+    parser.add_argument(
+        '--binLargePlots',
+        dest="bin_large_plots",
+        action="store_true",
+        help="Plot summary read depth in one-pixel-width bins for large plots."
+    )
+    parser.add_argument(
+        '--binningSummaryStatistic',
+        dest="binning_summary_statistic",
+        choices=["max", "min"],
+        type=str,
+        default="max",
+        help="Statistic used to summarize each bin (max or min)."
+    )
     parser.add_argument(
         '--outSummary',
         dest="out_summary",
@@ -577,6 +643,8 @@ def plot_coverage(
     max_coverage_depth,
     read_length_threshold,
     plot_only_non_duplicates=False,
+    bin_large_plots=False,
+    binning_summary_statistic="max",
     out_summary=None
     ):
     ''' 
@@ -673,7 +741,6 @@ def plot_coverage(
             segment_depths.setdefault(row[0], []).append(float(row[2]))
             domain_max += 1
 
-    domain_max = 0
     with plt.style.context(plot_style):
         fig = plt.gcf()
         DPI = plot_dpi or fig.get_dpi()
@@ -686,7 +753,26 @@ def plot_coverage(
         # Set the tick labels font
         for label in (ax.get_xticklabels() + ax.get_yticklabels()):
             label.set_fontsize(font_size)
-
+            
+        # Binning
+        bin_size = 1
+        if bin_large_plots:
+            # Bin locations and take summary value (maximum or minimum) in each bin
+            binning_action = eval(binning_summary_statistic)
+            
+            inner_plot_width_inches = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted()).width
+            inner_plot_width_px = inner_plot_width_inches * fig.dpi # width of actual plot (sans whitespace and y axis text)
+            bins_per_pixel = 1 # increase to make smaller (but less visible) bins
+            bin_size = 1 + int(domain_max/(inner_plot_width_px * bins_per_pixel))
+            
+            binned_segment_depths = OrderedDict()
+            for segment_num, (segment_name, position_depths) in enumerate(segment_depths.items()):
+                summary_depths_in_bins = [binning_action(position_depths[i:i + bin_size]) for i in range(0, len(position_depths), bin_size)]
+                binned_segment_depths[segment_name] = summary_depths_in_bins
+            segment_depths = binned_segment_depths
+        
+        # Plotting
+        domain_max = 0
         for segment_num, (segment_name, position_depths) in enumerate(segment_depths.items()):
             prior_domain_max = domain_max
             domain_max += len(position_depths)
@@ -694,19 +780,27 @@ def plot_coverage(
             colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])    # get the colors for this style
             segment_color = colors[segment_num % len(colors)]    # pick a color, offset by the segment index
 
+            x_values = range(prior_domain_max, domain_max)
+            x_values = [x * bin_size for x in x_values]
+
             if plot_data_style == "filled":
                 plt.fill_between(
-                    range(prior_domain_max, domain_max),
+                    x_values,
                     position_depths, [0] * len(position_depths),
                     linewidth=0,
                     antialiased=True,
                     color=segment_color
                 )
             elif plot_data_style == "line":
-                plt.plot(range(prior_domain_max, domain_max), position_depths, antialiased=True, color=segment_color)
+                plt.plot(
+                    x_values,
+                    position_depths,
+                    antialiased=True,
+                    color=segment_color
+                )
             elif plot_data_style == "dots":
                 plt.plot(
-                    range(prior_domain_max, domain_max),
+                    x_values,
                     position_depths,
                     'ro',
                     antialiased=True,
@@ -715,7 +809,11 @@ def plot_coverage(
 
         plt.title(plot_title, fontsize=font_size * 1.2)
         plt.xlabel("bp", fontsize=font_size * 1.1)
-        plt.ylabel("read depth", fontsize=font_size * 1.1)
+        
+        ylabel = "read depth"
+        if(bin_size > 1):
+        	ylabel = "read depth ({summary} in {size}-bp bin)".format(size=bin_size, summary=binning_summary_statistic)
+        plt.ylabel(ylabel, fontsize=font_size * 1.1)
 
         if plot_x_limits is not None:
             x_min, x_max = plot_x_limits
@@ -774,6 +872,8 @@ def align_and_plot_coverage(
     out_bam=None,
     sensitive=False,
     excludeDuplicates=False,
+    bin_large_plots=False,
+    binning_summary_statistic="max",
     JVMmemory=None,
     picardOptions=None,
     min_score_to_filter=None,
@@ -852,7 +952,7 @@ def align_and_plot_coverage(
     plot_coverage(
         bam_aligned, out_plot_file, plot_format, plot_data_style, plot_style, plot_width, plot_height, plot_dpi, plot_title,
         plot_x_limits, plot_y_limits, base_q_threshold, mapping_q_threshold, max_coverage_depth, read_length_threshold,
-        excludeDuplicates, out_summary
+        excludeDuplicates, bin_large_plots, binning_summary_statistic, out_summary
     )
 
     # remove the output bam, unless it is needed

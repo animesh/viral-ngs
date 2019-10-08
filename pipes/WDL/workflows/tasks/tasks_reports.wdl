@@ -2,7 +2,6 @@
 task plot_coverage {
   # TO DO: add a BWA option
   # TO DO: make GATK indel-realigner optional
-  String sample_name
 
   File assembly_fasta
   File reads_unmapped_bam
@@ -15,6 +14,10 @@ task plot_coverage {
 
   Boolean? skip_mark_dupes=false
   Boolean? plot_only_non_duplicates=false
+  Boolean? bin_large_plots=false
+  String? binning_summary_statistic="max" # max or min
+  
+  String sample_name = basename(basename(basename(reads_unmapped_bam, ".bam"), ".taxfilt"), ".clean")
 
   command {
     set -ex -o pipefail
@@ -64,6 +67,8 @@ task plot_coverage {
     if [[ "${skip_mark_dupes}" != "true" ]]; then
       PLOT_DUPE_OPTION="${true='--plotOnlyNonDuplicates' false="" plot_only_non_duplicates}"
     fi
+    
+    BINNING_OPTION="${true='--binLargePlots' false="" bin_large_plots}"
 
     # plot coverage
     if [ $(cat reads_aligned) != 0 ]; then
@@ -75,6 +80,8 @@ task plot_coverage {
         --plotHeight 850 \
         --plotDPI 100 \
         $PLOT_DUPE_OPTION \
+        $BINNING_OPTION \
+        --binningSummaryStatistic ${binning_summary_statistic} \
         --plotTitle "${sample_name} coverage plot" \
         --loglevel=DEBUG
     else
@@ -194,3 +201,62 @@ task spikein_report {
   }
 }
 
+task spikein_summary {
+  Array[File]+  spikein_count_txt
+
+  command {
+    set -ex -o pipefail
+
+    mkdir spike_summaries
+    cp ${sep=' ' spikein_count_txt} spike_summaries/
+
+    reports.py aggregate_spike_count spike_summaries/ spikein_summary.tsv \
+      --loglevel=DEBUG
+  }
+
+  output {
+    File   spikein_summary  = "spikein_summary.tsv"
+    String viralngs_version = "viral-ngs_version_unknown"
+  }
+
+  runtime {
+    memory: "3 GB"
+    cpu: 2
+    docker: "quay.io/broadinstitute/viral-ngs"
+    dx_instance_type: "mem1_ssd1_x4"
+  }
+}
+
+task aggregate_metagenomics_reports {
+  Array[File]+ kraken_summary_reports 
+  String     aggregate_taxon_heading_space_separated  = "Viruses" # The taxonomic heading to analyze. More than one can be specified.
+  String     aggregate_taxlevel_focus                 = "species" # species,genus,family,order,class,phylum,kingdom,superkingdom
+  Int?       aggregate_top_N_hits                     = 5 # only include the top N hits from a given sample in the aggregte report
+
+  String aggregate_taxon_heading = sub(aggregate_taxon_heading_space_separated, " ", "_") # replace spaces with underscores for use in filename
+  
+  command {
+    set -ex -o pipefail
+
+    metagenomics.py taxlevel_summary \
+      ${sep=' ' kraken_summary_reports} \
+      --csvOut aggregate_taxa_summary_${aggregate_taxon_heading}_by_${aggregate_taxlevel_focus}_top_${aggregate_top_N_hits}_by_sample.csv \
+      --noHist \
+      --taxHeading ${aggregate_taxon_heading_space_separated} \
+      --taxlevelFocus ${aggregate_taxlevel_focus} \
+      --zeroFill --includeRoot --topN ${aggregate_top_N_hits} \
+      --loglevel=DEBUG
+  }
+
+  output {
+    File krakenuniq_aggregate_taxlevel_summary = "aggregate_taxa_summary_${aggregate_taxon_heading}_by_${aggregate_taxlevel_focus}_top_${aggregate_top_N_hits}_by_sample.csv"
+  }
+
+  runtime {
+    docker: "quay.io/broadinstitute/viral-ngs"
+    memory: "4 GB"
+    cpu: 1
+    dx_instance_type: "mem1_ssd2_x2"
+    preemptible: 0
+  }
+}

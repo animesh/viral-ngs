@@ -19,7 +19,7 @@ import util.file
 import util.misc
 
 TOOL_NAME = "picard"
-TOOL_VERSION = '2.18.11'
+TOOL_VERSION = '2.21.1'
 TOOL_URL = 'https://github.com/broadinstitute/picard/releases/download/' \
     + '{ver}/picard-tools-{ver}.zip'.format(ver=TOOL_VERSION)
 # Note: /seq/software/picard/{versionnumber}/ does not correspond with github release numbers!
@@ -56,7 +56,7 @@ class PicardTools(tools.Tool):
 
         # the conda version wraps the jar file with a shell script
         path = self.install_and_get_path()
-        tool_cmd = [path, '-Xmx' + JVMmemory, '-Djava.io.tmpdir=' + tempfile.gettempdir(), command] + picardOptions
+        tool_cmd = [path, '-Xmx' + JVMmemory, '-Djava.io.tmpdir=' + tempfile.gettempdir(), command] + picardOptions + ['USE_JDK_DEFLATER=true','USE_JDK_INFLATER=true']
         _log.debug(' '.join(tool_cmd))
 
         env = os.environ.copy()
@@ -408,8 +408,9 @@ class CreateSequenceDictionaryTool(PicardTools):
                 os.unlink(outDict)
             else:
                 return
-        opts = ['REFERENCE=' + inFasta, 'OUTPUT=' + outDict]
-        PicardTools.execute(self, self.subtoolName, opts + picardOptions, JVMmemory)
+        with util.file.fastas_with_sanitized_ids(inFasta, use_tmp=False) as sanitized_fastas:
+            opts = ['REFERENCE=' + sanitized_fastas[0], 'OUTPUT=' + outDict]
+            PicardTools.execute(self, self.subtoolName, opts + picardOptions, JVMmemory)
 
 
 class BuildBamIndexTool(PicardTools):
@@ -458,7 +459,8 @@ class CollectIlluminaLaneMetricsTool(PicardTools):
 class ExtractIlluminaBarcodesTool(PicardTools):
     subtoolName = 'ExtractIlluminaBarcodes'
     jvmMemDefault = '8g'
-    defaults = {'read_structure': '101T8B8B101T', 'max_mismatches': 1, 'minimum_base_quality': 10, 'num_processors': 0}
+    # minimum_base_quality=20 used to accommodate NovaSeq, which with RTA3 writes only four Q-score values: 2, 12, 23, and 37
+    defaults = {'read_structure': '101T8B8B101T', 'max_mismatches': 0, 'minimum_base_quality': 20, 'num_processors': 0}
     option_list = (
         'read_structure', 'max_mismatches', 'minimum_base_quality', 'min_mismatch_delta', 'max_no_calls',
         'minimum_quality', 'compress_outputs', 'num_processors'
@@ -499,8 +501,8 @@ class IlluminaBasecallsToSamTool(PicardTools):
     defaults = {
         'read_structure': '101T8B8B101T',
         'adapters_to_check': ('PAIRED_END', 'NEXTERA_V1', 'NEXTERA_V2'),
-        'max_reads_in_ram_per_tile': 200000,
-        'max_records_in_ram': 1000000,
+        'max_reads_in_ram_per_tile': 1000000,
+        'max_records_in_ram': 2000000,
         'num_processors': 0,
         'include_non_pf_reads': False,
         'compression_level': 7,
