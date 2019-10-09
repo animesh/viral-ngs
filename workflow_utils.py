@@ -3262,6 +3262,7 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
       variants: the benchmark variants to compare
 
     """
+    beg_time = time.time()
     analysis_dirs = [os.path.join(benchmark_dir, 'benchmark_variants', variant) for variant in variants]
     out_dir = os.path.join(benchmark_dir, 'cmp', *variants)
     util.file.mkdir_p(out_dir)
@@ -3318,6 +3319,7 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
                     tags.a(variant, href=os.path.join('/', benchmark_dir, 'benchmark_variants', variant))
                 txt(') on ')
                 tags.a(benchmark_dir, href=os.path.join('/', benchmark_dir))
+                tags.a('[back to summary]', href=os.path.dirname(os.environ['HTTP_REFERER']))
 
             # with tags.h2():
             #     with tags.ul():
@@ -3426,6 +3428,8 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
             }
             '''))
 
+        tags.div(cls='footer').add(txt(datetime.datetime.now()))
+        tags.div(cls='footer').add(txt(time.time() - beg_time))
         # end: with tags.div(cls='body')
     # end: with doc
 
@@ -3813,6 +3817,24 @@ def parser_start_benchmarks_webserver(parser=argparse.ArgumentParser()):
     return parser
 
 __commands__.append(('start_benchmarks_webserver', parser_start_benchmarks_webserver))
+
+#########################################################################################################################
+
+def update_unified_benchmarks_data(benchmarks_spec_file):
+    """Gather the unified benchmarks data"""
+    head_commit = util.misc.maybe_decode(_run_get_output('git rev-parse HEAD')).strip()
+    util.misc.chk(len(head_commit) == 40)
+    timestamp = datetime.datetime.now().strftime('%y%m%d%H%M%S')
+    util.file.mkdir_p('unified_metrics')
+    unified_metrics_fname = os.path.join('unified_metrics', 'unified_metrics.{}.{}.pkl.gz'.format(timestamp, head_commit))
+    gather_benchmark_variant_metrics(benchmarks_spec_file, unified_metrics_fname)
+
+def parser_update_unified_benchmarks_data(parser=argparse.ArgumentParser()):
+    parser.add_argument('benchmarks_spec_file', help='benchmarks spec file')
+    util.cmd.attach_main(parser, update_unified_benchmarks_data, split_args=True)
+    return parser
+
+__commands__.append(('update_unified_benchmarks_data', parser_update_unified_benchmarks_data))
 
 #########################################################################################################################
 
