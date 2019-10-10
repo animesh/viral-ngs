@@ -133,6 +133,7 @@ import dominate
 import dominate.tags
 import dominate.util
 import autologging
+import warnings
 
 import boto3
 
@@ -147,7 +148,10 @@ import tools.docker
 import tools.cromwell
 import tools.muscle
 import tools.samtools
-import reports
+with warnings.catch_warnings(record=True) as reports_warnings:
+    warnings.filterwarnings('ignore', category=UserWarning, module='reports',
+                            message='\nThis call to matplotlib.use\\(\\) has no effect*')
+    import reports
 
 _log = logging.getLogger(__name__)
 
@@ -3820,7 +3824,7 @@ __commands__.append(('start_benchmarks_webserver', parser_start_benchmarks_webse
 
 #########################################################################################################################
 
-def update_unified_benchmarks_data(benchmarks_spec_file):
+def update_unified_metrics_data(benchmarks_spec_file):
     """Gather the unified benchmarks data"""
     head_commit = util.misc.maybe_decode(_run_get_output('git rev-parse HEAD')).strip()
     util.misc.chk(len(head_commit) == 40)
@@ -3829,12 +3833,19 @@ def update_unified_benchmarks_data(benchmarks_spec_file):
     unified_metrics_fname = os.path.join('unified_metrics', 'unified_metrics.{}.{}.pkl.gz'.format(timestamp, head_commit))
     gather_benchmark_variant_metrics(benchmarks_spec_file, unified_metrics_fname)
 
-def parser_update_unified_benchmarks_data(parser=argparse.ArgumentParser()):
+def parser_update_unified_metrics_data(parser=argparse.ArgumentParser()):
     parser.add_argument('benchmarks_spec_file', help='benchmarks spec file')
-    util.cmd.attach_main(parser, update_unified_benchmarks_data, split_args=True)
+    util.cmd.attach_main(parser, update_unified_metrics_data, split_args=True)
     return parser
 
-__commands__.append(('update_unified_benchmarks_data', parser_update_unified_benchmarks_data))
+__commands__.append(('update_unified_metrics_data', parser_update_unified_metrics_data))
+
+def load_unified_metrics_data(benchmarks_spec_file='benchmarks_spec.yaml'):
+    """Load the latest unified benchmarks spec data"""
+    unified_metrics_file = os.path.join('unified_metrics', sorted(os.listdir('unified_metrics'))[-1])
+    tools.git_annex.GitAnnexTool().maybe_get(unified_metrics_file)
+    unified_metrics = pd.read_pickle(unified_metrics_file)
+    return unified_metrics
 
 #########################################################################################################################
 
