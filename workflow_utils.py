@@ -92,6 +92,7 @@ import sys
 import re
 import random
 import getpass
+import gzip
 import urllib
 try:
     from urllib import urlencode, pathname2url
@@ -2469,8 +2470,50 @@ __commands__.append(('generate_benchmark_variant_comparisons_from_gathered_metri
 
 def show_metrics_page_html():
     """Show the latest metrics page as an html"""
+    beg_time = time.time()
     unified_metrics = load_unified_metrics_data()
-    print(unified_metrics.to_html())
+
+    # df = unified_metrics
+    # mid = df['labels.sample_name']
+    # df.drop(labels=['labels.sample_name'], axis=1,inplace = True)
+    # df.insert(0, 'labels.sample_name', mid)
+
+    tags = dominate.tags
+    title = 'Benchmark comparisons'
+    doc = dominate.document(title=title)
+
+    with doc.head:
+        tags.meta(http_equiv="Expires", content="Thu, 1 June 2000 23:59:00 GMT")
+        tags.meta(http_equiv="pragma", content="no-cache")
+        tags.style('table, th, td {border: 1px solid black;}')
+        tags.style('th {background-color: lightblue;}')
+        #tags.script(src='https://www.brainbell.com/javascript/download/resizable.js')
+
+    def txt(v): return dominate.util.text(str(v))
+    def trow(vals, td_or_th=tags.td): return tags.tr((td_or_th(txt(val)) for val in vals), __pretty=False)
+    raw = dominate.util.raw
+
+    import cgi
+
+    with doc:
+        tags.div(cls='header').add(txt(datetime.datetime.now()))
+        with tags.div(cls='body'):
+            tags.h1('Benchmark data')
+            filter_expr = cgi.FieldStorage().getfirst('filter_expr', '')
+            with tags.form():
+                txt('Filter expr')
+                tags.input(type='text', name='filter_expr', size=200, value=filter_expr)
+                tags.input(type='submit', value='Submit')
+            if filter_expr:
+                z = unified_metrics
+                unified_metrics = eval(filter_expr)
+            if isinstance(unified_metrics, pd.DataFrame):
+                txt('{} rows, {} cols'.format(len(unified_metrics), len(unified_metrics.columns)))
+            raw(unified_metrics.to_html()) if hasattr(unified_metrics, 'to_html') else txt(unified_metrics)
+        tags.div(cls='footer').add(txt(datetime.datetime.now()))
+        tags.div(cls='footer').add(txt(time.time() - beg_time))
+
+    print(doc.render())
 
 def benchmark_comparisons_summary_html(benchmarks_spec_file, unified_metrics_file, benchmarks_root=os.getcwd()):
     """Generate/update reports of benchmark comparisons.
