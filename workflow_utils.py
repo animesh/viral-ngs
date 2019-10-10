@@ -2469,7 +2469,8 @@ __commands__.append(('generate_benchmark_variant_comparisons_from_gathered_metri
 
 def show_metrics_page_html():
     """Show the latest metrics page as an html"""
-    pass
+    unified_metrics = load_unified_metrics_data()
+    print(unified_metrics.to_html())
 
 def benchmark_comparisons_summary_html(benchmarks_spec_file, unified_metrics_file, benchmarks_root=os.getcwd()):
     """Generate/update reports of benchmark comparisons.
