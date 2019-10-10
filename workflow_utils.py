@@ -148,7 +148,7 @@ import tools.docker
 import tools.cromwell
 import tools.muscle
 import tools.samtools
-with warnings.catch_warnings(record=True) as reports_warnings:
+with warnings.catch_warnings():
     warnings.filterwarnings('ignore', category=UserWarning, module='reports',
                             message='\nThis call to matplotlib.use\\(\\) has no effect*')
     import reports
@@ -2466,6 +2466,206 @@ def parser_generate_benchmark_variant_comparisons_from_gathered_metrics(parser=a
 
 __commands__.append(('generate_benchmark_variant_comparisons_from_gathered_metrics',
                      parser_generate_benchmark_variant_comparisons_from_gathered_metrics))
+
+def show_metrics_page_html():
+    """Show the latest metrics page as an html"""
+    pass
+
+def benchmark_comparisons_summary_html(benchmarks_spec_file, unified_metrics_file, benchmarks_root=os.getcwd()):
+    """Generate/update reports of benchmark comparisons.
+    """
+
+    beg_time = time.time()
+    benchmarks_spec_file = os.path.abspath(benchmarks_spec_file)
+    benchmarks_spec_dir = os.path.dirname(benchmarks_spec_file)
+    benchmarks_spec = util.misc.load_config(benchmarks_spec_file)
+    _log.info('benchmarks_spec=%s', benchmarks_spec)
+    
+    variant_pairs = [(variant_1, variant_2)
+                     for variant_1, variant_2s in benchmarks_spec.get('compare_variants', {}).items() for variant_2 in variant_2s]
+    _log.info('variant_paris=%s', variant_pairs)
+    processing_stats = collections.Counter()
+
+    muscle_tool = tools.muscle.MuscleTool()
+
+    #cmp_output_dir = benchmarks_spec['compare_output_dir']
+    util.file.mkdir_p(cmp_output_dir)
+    util.misc.chk(overwrite or not os.listdir(cmp_output_dir), 'cmp_output_dir must be an empty dir')
+
+    tools.git_annex.GitAnnexTool().maybe_get(unified_metrics_file)
+    unified_metrics = pd.read_pickle(unified_metrics_file)
+
+    all_metrics_fname = os.path.join(cmp_output_dir, 'all_metrics.html')
+    with open(all_metrics_fname, 'w') as out:
+        unified_metrics.to_html(out)
+
+    tags = dominate.tags
+    title = 'Benchmark comparisons'
+    doc = dominate.document(title=title)
+
+    with doc.head:
+        tags.meta(http_equiv="Expires", content="Thu, 1 June 2000 23:59:00 GMT")
+        tags.meta(http_equiv="pragma", content="no-cache")
+        tags.style('table, th, td {border: 1px solid black;}')
+        tags.style('th {background-color: lightgray;}')
+        tags.script(src='https://www.brainbell.com/javascript/download/resizable.js')
+
+    def txt(v): return dominate.util.text(str(v))
+    def trow(vals, td_or_th=tags.td): return tags.tr((td_or_th(txt(val)) for val in vals), __pretty=False)
+
+    with doc:
+        tags.div(cls='header').add(txt(datetime.datetime.now()))
+        with tags.div(cls='body'):
+            tags.h1('Benchmark comparisons')
+
+            tags.a('Metrics table', href='')
+
+    org = util.misc.Org()
+    org.directive('TITLE', 'Benchmark comparisons')
+    org.text('')
+    org.text('[[file:{}][Metrics table]]'.format(os.path.basename(all_metrics_fname)))
+    org.text('')
+
+    org.text('{} benchmarks, {} metrics'.format(unified_metrics.shape[0], unified_metrics.shape[1]))
+    org.text('')
+    for variant in benchmarks_spec['benchmark_variants']:
+        sample_names = unified_metrics['labels.sample_name']
+        org.text('variant ={}=: {}'.format(variant, sample_names[variant].nunique() if variant in sample_names else 'unknown'))
+        org.text('')
+
+    os.symlink(os.path.relpath(benchmarks_root, cmp_output_dir), os.path.join(cmp_output_dir, 'benchmarks_root'))
+
+    def make_url_for_pairwise_comparison(benchmark_dir, variant_0, variant_1):
+        return \
+            '/cgi-bin/show_benchmark_diff_page.sh?' \
+            'benchmark_dir={}&variant_0={}&variant_1={}'.format(os.path.relpath(benchmark_dir, benchmarks_root),
+                                                                variant_0, variant_1)
+        url = os.path.join('benchmarks_root', os.path.relpath(benchmark_dir, benchmarks_root), 'cmp', variant_0, variant_1,
+                           'index.html')
+        if not os.path.isfile(os.path.join(cmp_output_dir, url)):
+            diff_analyses_html(benchmark_dir, [variant_0, variant_1])
+        return url
+
+    with org.headline('Comparisons: created {}'.format(datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y"))):
+        for variants in variant_pairs:
+            with org.headline('={}= vs ={}='.format(variants[0], variants [1])):
+
+                org.text('={}= succeeded, ' \
+                         '={}= failed: {}'.format(variants[0], variants[1],
+                                                  sum((unified_metrics['status'].get(variants[0], None) == 'Succeeded') &
+                                                      (unified_metrics['status'].get(variants[1], None) == 'Failed'))))
+
+                org.text('')
+                org.text('={}= succeeded, ' \
+                         '={}= failed: {}'.format(variants[1], variants[0],
+                                                  sum((unified_metrics['status'].get(variants[1], None) == 'Succeeded') &
+                                                      (unified_metrics['status'].get(variants[0], None) == 'Failed'))))
+                org.text('')
+
+                for metric in benchmarks_spec['compare_metrics']:
+                    with org.headline('Metric: ={}='.format(metric)):
+
+                        no_change = 0
+                        total = 0
+
+                        #org.text('Total: {}.  No change: {}.'.format(total, no_change))
+                        #org.text('')
+
+                        data = unified_metrics[metric]
+
+                        def get_data_differing_by_margin(data, std_fraction):
+                            """Return a subset of the data that includes only points that differ by at least the given fraction
+                            of stddev"""
+                            margin = std_fraction*min(data[variants[0]].std(), data[variants[1]].std())
+                            return margin, data[(data[variants[0]] - data[variants[1]]).abs() >= margin]
+
+                        margin_to_plot, data_to_plot = get_data_differing_by_margin(data, std_fraction=.0000)
+                        
+                        fig = pp.figure()
+                        fig.suptitle('Metric: {}\nOmitted {} with diff < {:.2f}'.format(metric,
+                                                                                        len(data)-len(data_to_plot),
+                                                                                        margin_to_plot))
+                        
+                        axes_deltas_hist = fig.add_subplot(1, 2, 1)
+
+                        axes_deltas_hist.set_title('deltas: {} - {}'.format(variants[0], variants[1]))
+                        deltas = data_to_plot[variants[0]] - data_to_plot[variants[1]]
+                        _log.info('deltas=%s', deltas)
+
+                        axes_deltas_hist.hist(deltas.dropna(), bins=20)
+
+                        axes_scatter = fig.add_subplot(1, 2, 2)
+                        axes_scatter.set_title(metric.split('.')[-1])
+                        axes_scatter.set_xlabel(variants[0])
+                        axes_scatter.set_ylabel(variants[1])
+
+                        margin_to_link = margin_to_plot*3
+                        urls = [None if delta < margin_to_link else make_url_for_pairwise_comparison(benchmark_dir, *variants)
+                                for benchmark_dir, delta in deltas.abs().items()]
+
+                        axes_scatter.scatter(variants[0], variants[1],
+                                             data=data_to_plot, urls=urls)
+
+                        def plot_axes_limits(ax):
+                            lims = [
+                                np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
+                                np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
+                            ]
+
+                            # now plot both limits against each other
+                            ax.plot(lims, lims, 'k-', alpha=0.75, zorder=0)
+                            ax.set_aspect('equal')
+                            ax.set_xlim(lims)
+                            ax.set_ylim(lims)
+
+
+                        plot_axes_limits(axes_scatter)
+                        #ax.set_xticklabels(ax.get_xticklabels(), rotation='vertical')
+                        
+                        fig.subplots_adjust(wspace=.4, top=.8)
+
+                        fn = os.path.join(cmp_output_dir, 'fig{}.svg'.format(random.randint(0,10000)))
+                        fig.savefig(fn)
+
+                        org.text('')
+                        org.text('[[file:{}]]'.format(os.path.basename(fn)))
+                        org.text('')
+                                
+                        for delta_val, delta_infos in (): # itertools.groupby(sorted(deltas), key=operator.itemgetter(0)):
+                            delta_infos = list(delta_infos)
+                            with org.headline('{} (x{})'.format(delta_val, len(delta_infos))):
+                                _log.info('delta_infos=%s', delta_infos)
+                                for delta, variant_analysis_dirs, sample_name in delta_infos:
+                                    t = ' '.join('[[{}][{}]] '.format(variant_analysis_dir, 'ab'[i])
+                                                 for i, variant_analysis_dir in enumerate(variant_analysis_dirs))
+                                    with org.headline(sample_name + ' ' + t):
+                                        _diff_analyses_org(analysis_dirs=variant_analysis_dirs, org=org)
+
+    # end: with org.headline('Comparisons: created {}'.format(datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")))
+
+    # with org.headline('Pairwise comparisons'):
+    #     for benchmark_dir, variant_0, variant_1, anchor_name in anchors:
+    #         pairwise_comparison_org = diff_analyses_org(analysis_dirs=[os.path.join(benchmark_dir, 'benchmark_variants', v)
+    #                                                                    for v in (variant_0, variant_1)])
+    #         pairwise_comparison_org.custom_id = anchor_name
+    #         org.add_child(pairwise_comparison_org)
+
+    cmp_output_fname = os.path.join(cmp_output_dir, 'index.org')
+    util.file.dump_file(cmp_output_fname, str(org))
+    _run('emacs -Q --batch --eval \'(progn (find-file "{}") (org-html-export-to-html))\''.format(cmp_output_fname))
+
+def parser_benchmark_comparisons_summary_html(parser=argparse.ArgumentParser()):
+    parser.add_argument('benchmarks_spec_file', help='benchmarks spec in yaml')
+    parser.add_argument('unified_metrics_file', help='file from which to load the metrics')
+    parser.add_argument('cmp_output_dir', help='dir where to output the generated html')
+    parser.add_argument('--overwrite', default=False, action='store_true', help='overwrite target dir')
+    util.cmd.attach_main(parser, benchmark_comparisons_summary_html, split_args=True)
+    return parser
+
+__commands__.append(('benchmark_comparisons_summary_html',
+                     parser_benchmark_comparisons_summary_html))
+
+
 
 
 # ** print_analysis_stats
