@@ -110,6 +110,7 @@ import traceback
 import copy
 from pprint import pformat
 import binascii
+import warnings
 import concurrent.futures
 
 # *** 3rd-party
@@ -134,7 +135,10 @@ import dominate
 import dominate.tags
 import dominate.util
 import autologging
-import warnings
+import bokeh
+import bokeh.plotting
+import bokeh.embed
+import bokeh.models
 
 import boto3
 
@@ -2557,6 +2561,10 @@ def show_benchmark_comparisons_summary_html():
         tags.style('table, th, td {border: 1px solid black;}')
         tags.style('th {background-color: lightgray;}')
 
+        tags.script(src="https://cdn.pydata.org/bokeh/release/bokeh-1.3.4.min.js")
+        tags.script(src="https://cdn.pydata.org/bokeh/release/bokeh-widgets-1.3.4.min.js")
+        tags.script(src="https://cdn.pydata.org/bokeh/release/bokeh-tables-1.3.4.min.js")
+
     def txt(v): return dominate.util.text(str(v))
     def trow(vals, td_or_th=tags.td): return tags.tr((td_or_th(txt(val)) for val in vals), __pretty=False)
     benchmarks_root = os.getcwd()
@@ -2624,6 +2632,13 @@ def show_benchmark_comparisons_summary_html():
 
                     margin_to_plot, data_to_plot = get_data_differing_by_margin(data, std_fraction=.0000)
 
+                    #bokeh.plotting.output_file('bplot_{}.html', title='Benchmark comparisons for {}'.format(metric, metric))
+
+                    bfig = bokeh.plotting.figure(title='Metric {}'.format(metric), x_axis_label=variants[0],
+                                                 y_axis_label=variants[1],
+                                                 tools="pan,wheel_zoom,box_zoom,box_select,xwheel_pan,zoom_out," \
+                                                 "zoom_in,undo,redo,tap,reset")
+
                     fig = pp.figure()
                     fig.suptitle('Metric: {}\nOmitted {} with diff < {:.2f}'.format(metric,
                                                                                     len(data)-len(data_to_plot),
@@ -2643,11 +2658,26 @@ def show_benchmark_comparisons_summary_html():
                     axes_scatter.set_ylabel(variants[1])
 
                     margin_to_link = margin_to_plot*3
-                    urls = [None if delta < margin_to_link else make_url_for_pairwise_comparison(benchmark_dir, *variants)
+                    urls = ['' if delta < margin_to_link else make_url_for_pairwise_comparison(benchmark_dir, *variants)
                             for benchmark_dir, delta in deltas.abs().items()]
 
                     axes_scatter.scatter(variants[0], variants[1],
                                          data={k:tuple(v.to_list()) for k,v in data_to_plot.items()}, urls=urls)
+
+                    bsrc = bokeh.models.ColumnDataSource(data=dict(x=data_to_plot[variants[0]], y=data_to_plot[variants[1]],
+                                                                   url=urls))
+
+                    bfig.circle('x', 'y', size=10, nonselection_fill_alpha=1.0, selection_fill_color='firebrick', source=bsrc)
+
+                    url = "@url"
+                    taptool = bfig.select(type=bokeh.models.TapTool)
+                    taptool.callback = bokeh.models.OpenURL(url=url)
+
+                    bfig_script, bfig_div = bokeh.embed.components(bfig)
+                    dominate.util.raw(bfig_script)
+                    dominate.util.raw(bfig_div)
+                    
+                    #bokeh.plotting.show(bfig)
 
                     def plot_axes_limits(ax):
                         lims = (
@@ -2667,8 +2697,8 @@ def show_benchmark_comparisons_summary_html():
                     svg_io = io.BytesIO()
                     fig.savefig(svg_io, format = 'svg')
                     svg_str = util.misc.maybe_decode(svg_io.getvalue())
-                    with tags.p():
-                        dominate.util.raw(svg_str[svg_str.lower().index('<svg'):])
+                    #with tags.p():
+                    #    dominate.util.raw(svg_str[svg_str.lower().index('<svg'):])
 
                     #_fig_to_html(pp.figure())
                     #ax.set_xticklabels(ax.get_xticklabels(), rotation='vertical')
