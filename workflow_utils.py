@@ -2577,11 +2577,11 @@ def show_benchmark_comparisons_summary_html():
             tags.br()
 
             tags.p(txt('{} benchmarks, {} metrics'.format(unified_metrics.shape[0], unified_metrics.shape[1])))
-            tags.br()
+
             for variant in benchmarks_spec['benchmark_variants']:
                 sample_names = unified_metrics['labels.sample_name']
-                with tags.p():
-                    txt('variant ={}=: {}'.format(variant, sample_names[variant].nunique() if variant in sample_names else 'unknown'))
+                txt('variant {}: {}'.format(variant, sample_names[variant].nunique() if variant in sample_names else 'unknown'))
+                tags.br()
 
             #os.symlink(os.path.relpath(benchmarks_root, cmp_output_dir), os.path.join(cmp_output_dir, 'benchmarks_root'))
 
@@ -2594,27 +2594,23 @@ def show_benchmark_comparisons_summary_html():
             tags.h2('Comparisons: created {}'.format(datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")))
             for variants in variant_pairs:
                 tags.br()
-                tags.br()
+                tags.h3('{} vs {}'.format(variants[0], variants [1]))
 
-                tags.h3('={}= vs ={}='.format(variants[0], variants [1]))
-
-                txt('={}= succeeded, ' \
-                         '={}= failed: {}'.format(variants[0], variants[1],
+                txt('{} succeeded, ' \
+                         '{} failed: {}'.format(variants[0], variants[1],
                                                   sum((unified_metrics['status'].get(variants[0], None) == 'Succeeded') &
                                                       (unified_metrics['status'].get(variants[1], None) == 'Failed'))))
 
                 tags.br()
-                tags.br()
-                tags.br()
-                txt('={}= succeeded, ' \
-                         '={}= failed: {}'.format(variants[1], variants[0],
+                txt('{} succeeded, ' \
+                         '{} failed: {}'.format(variants[1], variants[0],
                                                   sum((unified_metrics['status'].get(variants[1], None) == 'Succeeded') &
                                                       (unified_metrics['status'].get(variants[0], None) == 'Failed'))))
                 tags.br()
                 tags.br()
 
                 for metric in benchmarks_spec['compare_metrics']:
-                    txt('Metric: ={}='.format(metric))
+                    txt('Metric: {}'.format(metric))
 
                     no_change = 0
                     total = 0
@@ -2623,6 +2619,7 @@ def show_benchmark_comparisons_summary_html():
                     #txt('')
 
                     data = unified_metrics[metric]
+                    data['sample_name'] = unified_metrics['labels.sample_name'][variants[0]]
 
                     def get_data_differing_by_margin(data, std_fraction):
                         """Return a subset of the data that includes only points that differ by at least the given fraction
@@ -2634,8 +2631,12 @@ def show_benchmark_comparisons_summary_html():
 
                     #bokeh.plotting.output_file('bplot_{}.html', title='Benchmark comparisons for {}'.format(metric, metric))
 
+                    TOOLTIPS = [
+                        ("sample", "@sample_name")
+                    ]
+
                     bfig = bokeh.plotting.figure(title='Metric {}'.format(metric), x_axis_label=variants[0],
-                                                 y_axis_label=variants[1],
+                                                 y_axis_label=variants[1], tooltips=TOOLTIPS,
                                                  tools="pan,wheel_zoom,box_zoom,box_select,xwheel_pan,zoom_out," \
                                                  "zoom_in,undo,redo,tap,reset")
 
@@ -2665,7 +2666,7 @@ def show_benchmark_comparisons_summary_html():
                                          data={k:tuple(v.to_list()) for k,v in data_to_plot.items()}, urls=urls)
 
                     bsrc = bokeh.models.ColumnDataSource(data=dict(x=data_to_plot[variants[0]], y=data_to_plot[variants[1]],
-                                                                   url=urls))
+                                                                   url=urls, sample_name=data_to_plot['sample_name']))
 
                     bfig.circle('x', 'y', size=10, nonselection_fill_alpha=1.0, selection_fill_color='firebrick', source=bsrc)
 
