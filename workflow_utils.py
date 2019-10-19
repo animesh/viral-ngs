@@ -3392,6 +3392,15 @@ def _load_analysis_metadata(analysis_dir, git_links_abspaths=False):
         if contigs_fasta.endswith('fasta'):
             sample_name = os.path.basename(contigs_fasta).split('.')[0]
             mdata.setdefault('labels', collections.OrderedDict())['sample_name'] = sample_name
+
+    if not _qry_json(mdata, 'labels.dx_project'):
+        if 'project' not in mdata:
+            if 'benchmark_variants' in analysis_dir:
+                benchmark_dir = os.path.dirname(os.path.dirname(analysis_dir))
+                mdata_benchmark = _json_loadf(os.path.join(benchmark_dir, 'metadata_with_gitlinks.json'))
+                if 'project' in mdata_benchmark:
+                    mdata.setdefault('labels', collections.OrderedDict())['dx_project'] = mdata_benchmark['project']
+
     return mdata
 
 def _flatten_analysis_metadata_list(val, pfx=()):
