@@ -2139,7 +2139,7 @@ def _gather_metrics_for_one_variant_of_one_benchmark(benchmark_dir_and_benchmark
         mdata_flat = _flatten_analysis_metadata(mdata)
         for metric_name, metric_value in mdata_flat.items():
             metric_name_str = '.'.join(map(str, metric_name))
-            if any(metric_name_str.startswith(prefix) for prefix in ('inputs.', 'outputs.', 'labels.', 'status')):
+            if any(metric_name_str.startswith(prefix) for prefix in ('inputs.', 'outputs.', 'labels.', 'status', 'runinfo')):
                 result.append((metric_name_str, benchmark_variant, benchmark_dir, metric_value))
     return result
 
