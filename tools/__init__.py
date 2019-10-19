@@ -222,9 +222,9 @@ class CondaPackage(InstallMethod):
     '''
 
     QUIET_COMMANDS = [
-        'install',
-        'create',
-        'remove',
+#        'install',
+#        'create',
+#        'remove',
         ]
 
     def execute(self, cmd, loglevel=logging.DEBUG, buffered=None, check=None, silent=None, stderr=None):
