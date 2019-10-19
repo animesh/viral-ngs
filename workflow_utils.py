@@ -141,6 +141,8 @@ import bokeh.embed
 import bokeh.models
 
 import boto3
+import dateutil
+import dateutil.parser
 
 # *** intra-module
 import util.cmd
@@ -212,6 +214,13 @@ def _dict_rename_key(d, old_key, new_key):
         d[new_key] = d[old_key]
         del d[old_key]
     return d
+
+def _dict_set_nested(d, keys, val):
+    """Set a dict value using possibly nested dicts."""
+    keys = tuple(keys)
+    for key in keys[:-1]:
+        d = d.setdefault(key, collections.OrderedDict())
+    d[keys[-1]] = val
 
 # *** json processing
 
@@ -3409,6 +3418,11 @@ def _load_analysis_metadata(analysis_dir, git_links_abspaths=False):
                     except Exception as e:
                         _log.info('Could not get project name: %s', e)
                         pass
+
+    _dict_set_nested(mdata, ('runinfo', 'succeeded'), mdata.get('status', 'unknown') == 'Succeeded')
+    _dict_set_nested(mdata, ('runinfo', 'duration_minutes'),
+                     (dateutil.parser.parse(mdata['end']) - dateutil.parser.parse(mdata['start'])).seconds / 60.0 \
+                     if 'end' in mdata and 'start' in mdata else -1.0)
 
     return mdata
 
