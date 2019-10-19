@@ -3421,8 +3421,8 @@ def _load_analysis_metadata(analysis_dir, git_links_abspaths=False):
 
     _dict_set_nested(mdata, ('runinfo', 'succeeded'), mdata.get('status', 'unknown') == 'Succeeded')
     _dict_set_nested(mdata, ('runinfo', 'duration_minutes'),
-                     (dateutil.parser.parse(mdata['end']) - dateutil.parser.parse(mdata['start'])).seconds / 60.0 \
-                     if 'end' in mdata and 'start' in mdata else -1.0)
+                     round((dateutil.parser.parse(mdata['end']) - dateutil.parser.parse(mdata['start'])).seconds / 60.0 \
+                           if 'end' in mdata and 'start' in mdata else -1.0, 1))
 
     return mdata
 
