@@ -3387,11 +3387,14 @@ def _load_analysis_metadata(analysis_dir, git_links_abspaths=False):
     mdata['analysis_dir'] = analysis_dir
     if git_links_abspaths:
         mdata = _make_git_links_absolute(mdata, base_dir=os.path.abspath(analysis_dir))
+
+    mdata_labels = mdata.setdefault('labels', collections.OrderedDict())
+
     if not _qry_json(mdata, 'labels.sample_name'):
         contigs_fasta = str(_qry_json(mdata, 'outputs."assemble_denovo.assemble.contigs_fasta"."$git_link"'))
         if contigs_fasta.endswith('fasta'):
             sample_name = os.path.basename(contigs_fasta).split('.')[0]
-            mdata.setdefault('labels', collections.OrderedDict())['sample_name'] = sample_name
+            mdata_labels['sample_name'] = sample_name
 
     if not _qry_json(mdata, 'labels.dx_project'):
         if 'project' not in mdata:
@@ -3399,7 +3402,13 @@ def _load_analysis_metadata(analysis_dir, git_links_abspaths=False):
                 benchmark_dir = os.path.dirname(os.path.dirname(analysis_dir))
                 mdata_benchmark = _json_loadf(os.path.join(benchmark_dir, 'metadata_with_gitlinks.json'))
                 if 'project' in mdata_benchmark:
-                    mdata.setdefault('labels', collections.OrderedDict())['dx_project'] = mdata_benchmark['project']
+                    mdata_labels['dx_project'] = mdata_benchmark['project']
+                    dnanexus_tool = tools.dnanexus.DxTool()
+                    try:
+                        mdata_labels['dx_project_name'] = dnanexus_tool.describe(mdata_benchmark['project'])['name']
+                    except Exception as e:
+                        _log.info('Could not get project name: %s', e)
+                        pass
 
     return mdata
 
