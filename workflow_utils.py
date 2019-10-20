@@ -2679,6 +2679,10 @@ def show_benchmark_comparisons_summary_html():
 
                     bfig.circle('x', 'y', size=10, nonselection_fill_alpha=1.0, selection_fill_color='firebrick', source=bsrc)
 
+                    lims = (np.min((data_to_plot[variants[0]].min(), data_to_plot[variants[1]].min())),
+                            np.max((data_to_plot[variants[0]].max(), data_to_plot[variants[1]].max())))
+                    bfig.line(lims, lims)
+
                     url = "@url"
                     taptool = bfig.select(type=bokeh.models.TapTool)
                     taptool.callback = bokeh.models.OpenURL(url=url)
@@ -3420,9 +3424,14 @@ def _load_analysis_metadata(analysis_dir, git_links_abspaths=False):
                         pass
 
     _dict_set_nested(mdata, ('runinfo', 'succeeded'), mdata.get('status', 'unknown') == 'Succeeded')
-    _dict_set_nested(mdata, ('runinfo', 'duration_minutes'),
-                     round((dateutil.parser.parse(mdata['end']) - dateutil.parser.parse(mdata['start'])).seconds / 60.0 \
-                           if 'end' in mdata and 'start' in mdata else -1.0, 1))
+    def _get_duration(mdata):
+        return round((dateutil.parser.parse(mdata['end']) - dateutil.parser.parse(mdata['start'])).seconds / 60.0 \
+                           if 'end' in mdata and 'start' in mdata else -1.0, 1)
+    _dict_set_nested(mdata, ('runinfo', 'duration_minutes'), _get_duration(mdata))
+
+    for stage, stage_attempts in mdata.get('calls', {}).items():
+        duration = _get_duration(stage_attempts[-1])
+        _dict_set_nested(mdata, ('runinfo', stage+'.duration_minutes'), duration)
 
     return mdata
 
