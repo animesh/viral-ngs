@@ -961,7 +961,9 @@ def _extract_wdl_from_docker_img(docker_img, analysis_dir):
     """Extracts from docker image the workflow and task .wdl files into the current directory"""
     _run('docker run --rm ' + docker_img + ' tar cf - source/pipes/WDL > wdl.tar', cwd=analysis_dir)
     _run('tar xvf wdl.tar', cwd=analysis_dir)
-    util.file.mkdir_p(os.path.join(analysis_dir, 'tasks'))
+    #util.file.mkdir_p(os.path.join(analysis_dir, 'tasks'))
+    shutil.rmtree(util.file.mkdir_p(os.path.join(analysis_dir, 'tasks')), ignore_errors=True)
+    os.symlink('.', util.file.mkdir_p(os.path.join(analysis_dir, 'tasks')))
     for f in glob.glob(os.path.join(analysis_dir, 'source/pipes/WDL/workflows/*.wdl')):
         _log.debug('copying %s to %s', f, analysis_dir)
         shutil.copy(f, analysis_dir)
