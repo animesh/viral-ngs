@@ -368,12 +368,13 @@ class GitAnnexTool(tools.Tool):
 
     @contextlib.contextmanager
     def _in_tmp_worktree(self, worktree_group_id='', chdir=True, keep=False):
-        """Create a temp branch in a temp worktree, chdir to it; then, on context exit, add everything in it to git-annex"""
+        """Create a temp branch in a temp worktree, chdir to it; yield the name of the branch and the temp worktree dir."""
         temp_branch = os.path.join('tmp_wtree', worktree_group_id, str(uuid.uuid4()))
         temp_worktree_dir = os.path.join('tmp', temp_branch)
-        self.execute_git(['worktree', 'add', '-b', temp_branch, temp_worktree_dir, self.get_first_commit()])
+        self.execute_git(['worktree', 'add', '--no-checkout', '-b', temp_branch, temp_worktree_dir, self.get_first_commit()])
         dot_git = os.path.join(temp_worktree_dir, '.git')
         save_dot_git = util.file.slurp_file(dot_git)
+        self.execute_git(['checkout'], cwd=temp_worktree_dir)
         try:
             with contextlib2.ExitStack() as exit_stack:
                 if chdir:
