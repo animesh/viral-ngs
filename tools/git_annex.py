@@ -416,12 +416,12 @@ class GitAnnexTool(tools.Tool):
     def add(self, fname):
         """Add a file to git-annex"""
         _log.debug('CALL TO ADD %s; batch status = %s', fname, self._batched_cmds)
-        self.execute_batch(['add'], batch_args=(fname,))
+        self.execute_batch(['add', '--include-dotfiles'], batch_args=(fname,))
         _log.debug('RETURNED FROM CALL TO ADD %s; batch status = %s', fname, self._batched_cmds)
 
     def add_cwd(self):
         """Add files in current working directory to git-annex"""
-        self.execute(['add'])
+        self.execute(['add', '--include-dotfiles'])
 
     def add_dir(self, directory):
         """Add files in given directory to git-annex"""
@@ -430,7 +430,7 @@ class GitAnnexTool(tools.Tool):
         sleep_time = 4
         while True:
             try:
-                return self.execute(['add'], cwd=directory)
+                return self.execute(['add', '--include-dotfiles'], cwd=directory)
             except Exception as e:
                 if retries > 0:
                     _log.debug('add_dir: error %s, %d retries left', e, retries)

@@ -213,6 +213,7 @@ def _dict_rename_key(d, old_key, new_key):
     if new_key != old_key:
         d[new_key] = d[old_key]
         del d[old_key]
+        _dict_set_nested(d, ('_key_renamings', old_key), new_key)
     return d
 
 def _dict_set_nested(d, keys, val):
@@ -521,7 +522,7 @@ def _git_annex_get(f):
     assert os.path.isfile(f)
 
 def _git_annex_add(f):
-    _run('git', 'annex', 'add', f)
+    _run('git', 'annex', 'add', '--include-dotfiles', f)
 
 def _git_annex_get_metadata(key, field):
     ga_mdata = _run_get_json('git', 'annex', 'metadata', '--json', '--key='+key)
@@ -721,10 +722,11 @@ def _import_dx_analysis(dx_analysis_id, analysis_dir_pfx, git_annex_tool, dnanex
             if stage_id in stage2name:
                 _log.info('RENAMING %s to %s', k, mdata['workflowName']+'.'+stage2name[stage_id]+k[len(stage_id):])
                 # TODO: fix dependence on dxWDL internals, specifically that common stage is first
-                util.misc.chk(stage2name[stage_id] != 'common' or stage_id == 'stage-0')
+                #util.misc.chk(stage2name[stage_id] not in ('common', 'stage-common') or stage_id == 'stage-0',
+                #              'STRANGE STAGE ID: stage_id={} stage2name={} k={}'.format(stage_id, stage2name, k))
                 _dict_rename_key(mdata[mdata_rec], k,
                                  mdata['workflowName'] + \
-                                 (('.'+stage2name[stage_id]) if stage2name[stage_id] != 'common' else '') + \
+                                 (('.'+stage2name[stage_id]) if stage2name[stage_id] not in ('common', 'stage-common') else '') + \
                                  k[len(stage_id):])
 
     for k in tuple(mdata['runInput']):
@@ -840,7 +842,7 @@ def _import_dx_analysis_and_commit(dx_analysis_id, analysis_dir_pfx, script, tem
             _run(script, 'import_one_dx_analysis', '--analysisDirPfx', analysis_dir_pfx,
                  dx_analysis_id, cwd=temp_worktree_dir, stdout=_out_stdout, stderr=_out_stderr)
     finally:
-        _run('git', 'annex', 'add', '.', cwd=temp_worktree_dir)
+        _run('git', 'annex', 'add', '--include-dotfiles', '.', cwd=temp_worktree_dir)
         _run('git', 'commit', '-m', 'imported dx analysis {}'.format(dx_analysis_id), cwd=temp_worktree_dir)
 
 def _set_up_worktree(dx_analysis_id, exit_stack, git_annex_tool, worktree_group_id):
@@ -1006,6 +1008,7 @@ def _get_wdl_for_docker_img(docker_img, workflow_name, extracted_wdl_base_dir='w
         _run('sed -i -- "s|{}|{}|g" {}/*.wdl'.format('quay.io/broadinstitute/viral-ngs', docker_img_no_hash, wdl_dir))
         _run('sed -i -- "s|{}|{}|g" {}/*.wdl'.format('viral-ngs_version_unknown',
                                                      docker_img_no_hash.split(':')[1], wdl_dir))
+        _run('touch -a -m -t 201901010101.00 *.wdl', cwd=wdl_dir)
         _run('zip imports.zip *.wdl', cwd=wdl_dir)
         git_annex_tool = tools.git_annex.GitAnnexTool()
         if copy_to:
@@ -1954,7 +1957,7 @@ def _generate_one_benchmark_variant_and_commit(benchmarks_spec_file, one_benchma
             _run(script, 'generate_benchmark_variant_dirs', benchmarks_spec_file, '--oneBenchmarkDir', one_benchmark_dir,
                  '--oneBenchmarkVariant', one_benchmark_variant, cwd=temp_worktree_dir, stdout=_out_stdout, stderr=_out_stderr)
     finally:
-        _run('git', 'annex', 'add', '.', cwd=temp_worktree_dir)
+        _run('git', 'annex', 'add', '--include-dotfiles', '.', cwd=temp_worktree_dir)
         _run('git', 'commit', '-m', 'generated benchmark variant {} {}'.format(one_benchmark_dir, one_benchmark_variant),
              cwd=temp_worktree_dir)
 
