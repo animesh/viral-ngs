@@ -2572,7 +2572,7 @@ def show_benchmark_comparisons_summary_html(benchmarks_spec_file='benchmarks_spe
     #cmp_output_dir = benchmarks_spec['compare_output_dir']
 
     tags = dominate.tags
-    title = 'Benchmark comparisons for {}'.format(benchmarks_spec_file)
+    title = 'Benchmark comparisons for {}'.format(os.path.relpath(benchmarks_spec_file))
     doc = dominate.document(title=title)
 
     with doc.head:
@@ -2591,7 +2591,7 @@ def show_benchmark_comparisons_summary_html(benchmarks_spec_file='benchmarks_spe
     with doc:
         with tags.p(): tags.div(cls='header').add(txt(datetime.datetime.now()))
         with tags.div(cls='body'):
-            tags.h1('Benchmark comparisons for {}'.format(benchmarks_spec_file))
+            tags.h1('Benchmark comparisons for {}'.format(os.path.relpath(benchmarks_spec_file)))
 
             tags.a('Metrics table', href='/cgi-bin/show_metrics_table_page.sh?')
             tags.br()
