@@ -4139,23 +4139,23 @@ __commands__.append(('start_benchmarks_webserver', parser_start_benchmarks_webse
 
 #########################################################################################################################
 
-def update_unified_metrics_data(benchmarks_spec_file):
+def update_unified_metrics_data(benchmarks_spec_files):
     """Gather the unified benchmarks data"""
     head_commit = util.misc.maybe_decode(_run_get_output('git rev-parse HEAD')).strip()
     util.misc.chk(len(head_commit) == 40)
     timestamp = datetime.datetime.now().strftime('%y%m%d%H%M%S')
     util.file.mkdir_p('unified_metrics')
     unified_metrics_fname = os.path.join('unified_metrics', 'unified_metrics.{}.{}.pkl.gz'.format(timestamp, head_commit))
-    gather_benchmark_variant_metrics(benchmarks_spec_file, unified_metrics_fname)
+    gather_benchmark_variant_metrics(benchmarks_spec_files, unified_metrics_fname)
 
 def parser_update_unified_metrics_data(parser=argparse.ArgumentParser()):
-    parser.add_argument('benchmarks_spec_file', help='benchmarks spec file')
+    parser.add_argument('benchmarks_spec_files', nargs='+', metavar='BENCHMARKS_SPEC_FILE', help='benchmarks spec in yaml')
     util.cmd.attach_main(parser, update_unified_metrics_data, split_args=True)
     return parser
 
 __commands__.append(('update_unified_metrics_data', parser_update_unified_metrics_data))
 
-def load_unified_metrics_data(benchmarks_spec_file='benchmarks_spec.yaml'):
+def load_unified_metrics_data():
     """Load the latest unified benchmarks spec data"""
     unified_metrics_file = os.path.join('unified_metrics', sorted(os.listdir('unified_metrics'))[-1])
     tools.git_annex.GitAnnexTool().maybe_get(unified_metrics_file)
