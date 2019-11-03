@@ -2550,12 +2550,11 @@ def _fig_to_html(fig):
         dominate.util.raw(svg_str[svg_str.lower().index('<svg'):])
     
 
-def show_benchmark_comparisons_summary_html():
+def show_benchmark_comparisons_summary_html(benchmarks_spec_file='benchmarks_spec.yaml'):
     """Generate/update reports of benchmark comparisons.
     """
 
     beg_time = time.time()
-    benchmarks_spec_file='benchmarks_spec.yaml'
     benchmarks_spec_file = os.path.abspath(benchmarks_spec_file)
     benchmarks_spec_dir = os.path.dirname(benchmarks_spec_file)
     benchmarks_spec = util.misc.load_config(benchmarks_spec_file)
@@ -2573,7 +2572,7 @@ def show_benchmark_comparisons_summary_html():
     #cmp_output_dir = benchmarks_spec['compare_output_dir']
 
     tags = dominate.tags
-    title = 'Benchmark comparisons'
+    title = 'Benchmark comparisons for {}'.format(benchmarks_spec_file)
     doc = dominate.document(title=title)
 
     with doc.head:
@@ -2592,7 +2591,7 @@ def show_benchmark_comparisons_summary_html():
     with doc:
         with tags.p(): tags.div(cls='header').add(txt(datetime.datetime.now()))
         with tags.div(cls='body'):
-            tags.h1('Benchmark comparisons')
+            tags.h1('Benchmark comparisons for {}'.format(benchmarks_spec_file))
 
             tags.a('Metrics table', href='/cgi-bin/show_metrics_table_page.sh?')
             tags.br()
