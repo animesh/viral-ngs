@@ -1902,7 +1902,7 @@ def _generate_benchmark_variant(benchmarks_spec_dir, benchmark_dir, benchmark_va
         _run('git annex copy . --to={}'.format(copy_to), cwd=analysis_dir, retries=3)
         
 
-def generate_benchmark_variant_dirs(benchmarks_spec_file, one_benchmark_dir=None, one_benchmark_variant=None, copy_to=None):
+def generate_benchmark_variant_dirs(benchmarks_spec_files, one_benchmark_dir=None, one_benchmark_variant=None, copy_to=None):
     """The code below takes a benchmark spec file, which specifies benchmarks (as analysis dirs) and variants,
     and generates, under each benchmark dir and for each variant, an analysis spec obtained by
     overriding the benchmark settings with the variant.
@@ -1910,32 +1910,33 @@ def generate_benchmark_variant_dirs(benchmarks_spec_file, one_benchmark_dir=None
     Args:
       benchmarks_spec: a yaml file specifying benchmarks and variants.
     """
+    for benchmarks_spec_file in benchmarks_spec_files:
 
-    benchmarks_spec_file = os.path.abspath(benchmarks_spec_file)
-    benchmarks_spec_dir = os.path.dirname(benchmarks_spec_file)
-    benchmarks_spec = util.misc.load_config(benchmarks_spec_file)
-    _log.info('benchmarks_spec=%s', benchmarks_spec)
+        benchmarks_spec_file = os.path.abspath(benchmarks_spec_file)
+        benchmarks_spec_dir = os.path.dirname(benchmarks_spec_file)
+        benchmarks_spec = util.misc.load_config(benchmarks_spec_file)
+        _log.info('benchmarks_spec=%s', benchmarks_spec)
 
-    benchmark_dirs = [one_benchmark_dir] if one_benchmark_dir else \
-        list(map(functools.partial(os.path.relpath, start=benchmarks_spec_dir),
-                 _get_analysis_dirs_under(benchmarks_spec['benchmark_dirs_roots'])))
-    _log.info('benchmark_dirs=%s', benchmark_dirs)
+        benchmark_dirs = [one_benchmark_dir] if one_benchmark_dir else \
+            list(map(functools.partial(os.path.relpath, start=benchmarks_spec_dir),
+                     _get_analysis_dirs_under(benchmarks_spec['benchmark_dirs_roots'])))
+        _log.info('benchmark_dirs=%s', benchmark_dirs)
 
-    git_annex_tool = tools.git_annex.GitAnnexTool()
-    with git_annex_tool.batching() as git_annex_tool:
-        for benchmark_dir in benchmark_dirs:
-            for benchmark_variant_name, benchmark_variant_def in benchmarks_spec['benchmark_variants'].items():
-                if one_benchmark_variant and benchmark_variant_name != one_benchmark_variant: continue
-                
-                if 'benchmark_variant_frame' in benchmarks_spec:
-                    benchmark_variant_def = benchmarks_spec['benchmark_variant_frame'].replace('BENCHMARK_VARIANT_DEF',
-                                                                                               benchmark_variant_def)
+        git_annex_tool = tools.git_annex.GitAnnexTool()
+        with git_annex_tool.batching() as git_annex_tool:
+            for benchmark_dir in benchmark_dirs:
+                for benchmark_variant_name, benchmark_variant_def in benchmarks_spec['benchmark_variants'].items():
+                    if one_benchmark_variant and benchmark_variant_name != one_benchmark_variant: continue
 
-                _generate_benchmark_variant(benchmarks_spec_dir, benchmark_dir, benchmark_variant_name,
-                                            benchmark_variant_def, git_annex_tool, copy_to=copy_to)
+                    if 'benchmark_variant_frame' in benchmarks_spec:
+                        benchmark_variant_def = benchmarks_spec['benchmark_variant_frame'].replace('BENCHMARK_VARIANT_DEF',
+                                                                                                   benchmark_variant_def)
+
+                    _generate_benchmark_variant(benchmarks_spec_dir, benchmark_dir, benchmark_variant_name,
+                                                benchmark_variant_def, git_annex_tool, copy_to=copy_to)
 
 def parser_generate_benchmark_variant_dirs(parser=argparse.ArgumentParser()):
-    parser.add_argument('benchmarks_spec_file', help='benchmarks spec in yaml')
+    parser.add_argument('benchmarks_spec_files', nargs='+', metavar='BENCHMARKS_SPEC_FILE', help='benchmarks spec in yaml')
     parser.add_argument('--oneBenchmarkDir', dest='one_benchmark_dir', help='process only this benchmark dir')
     parser.add_argument('--oneBenchmarkVariant', dest='one_benchmark_variant', help='process only this benchmark variant')
     parser.add_argument('--copyTo', dest='copy_to', help='copy files to this remote')
@@ -2040,7 +2041,7 @@ __commands__.append(('generate_mult_benchmark_variant_dirs', parser_generate_mul
 
 # *** submit_benchmark_variant_dirs
 
-def submit_benchmark_variant_dirs(benchmarks_spec_file, backend='Local', copy_to=None, submit_failures_file=None):
+def submit_benchmark_variant_dirs(benchmarks_spec_files, backend='Local', copy_to=None, submit_failures_file=None):
     """The code below takes a benchmark spec file, which specifies benchmarks (as analysis dirs) and variants,
     and generates, under each benchmark dir and for each variant, an analysis spec obtained by
     overriding the benchmark settings with the variant.
@@ -2050,36 +2051,37 @@ def submit_benchmark_variant_dirs(benchmarks_spec_file, backend='Local', copy_to
     
       submit_failures_file: put list of benchmarks that failed to submit here
     """
+    for benchmarks_spec_file in benchmarks_spec_files:
 
-    benchmarks_spec_file = os.path.abspath(benchmarks_spec_file)
-    benchmarks_spec_dir = os.path.dirname(benchmarks_spec_file)
-    benchmarks_spec = util.misc.load_config(benchmarks_spec_file)
-    _log.info('benchmarks_spec=%s', benchmarks_spec)
+        benchmarks_spec_file = os.path.abspath(benchmarks_spec_file)
+        benchmarks_spec_dir = os.path.dirname(benchmarks_spec_file)
+        benchmarks_spec = util.misc.load_config(benchmarks_spec_file)
+        _log.info('benchmarks_spec=%s', benchmarks_spec)
 
-    benchmark_dirs = _get_analysis_dirs_under(benchmarks_spec['benchmark_dirs_roots'])
-    _log.info('benchmark_dirs=%s', benchmark_dirs)
+        benchmark_dirs = _get_analysis_dirs_under(benchmarks_spec['benchmark_dirs_roots'])
+        _log.info('benchmark_dirs=%s', benchmark_dirs)
 
-    processing_stats = collections.Counter()
+        processing_stats = collections.Counter()
 
-    submit_failures = []
+        submit_failures = []
 
-    git_annex_tool = tools.git_annex.GitAnnexTool()
-    for benchmark_dir in benchmark_dirs:
-        for benchmark_variant_name in benchmarks_spec['benchmark_variants']:
-            analysis_dir = os.path.join(benchmark_dir, 'benchmark_variants', benchmark_variant_name)
-            try:
-                _submit_prepared_analysis(analysis_dir=analysis_dir,
-                                          processing_stats=processing_stats, backend=backend, copy_to=copy_to)
-            except Exception:
-                _log.warning('SUBMIT FAILURE IN %s', analysis_dir)
-                submit_failures.append(analysis_dir)
+        git_annex_tool = tools.git_annex.GitAnnexTool()
+        for benchmark_dir in benchmark_dirs:
+            for benchmark_variant_name in benchmarks_spec['benchmark_variants']:
+                analysis_dir = os.path.join(benchmark_dir, 'benchmark_variants', benchmark_variant_name)
+                try:
+                    _submit_prepared_analysis(analysis_dir=analysis_dir,
+                                              processing_stats=processing_stats, backend=backend, copy_to=copy_to)
+                except Exception:
+                    _log.warning('SUBMIT FAILURE IN %s', analysis_dir)
+                    submit_failures.append(analysis_dir)
 
-    if submit_failures_file:
-        util.file.dump_file(submit_failures_file, '\n'.join(submit_failures))
+        if submit_failures_file:
+            util.file.dump_file(submit_failures_file, '\n'.join(submit_failures))
 
 
 def parser_submit_benchmark_variant_dirs(parser=argparse.ArgumentParser()):
-    parser.add_argument('benchmarks_spec_file', help='benchmarks spec in yaml')
+    parser.add_argument('benchmarks_spec_files', nargs='+', metavar='BENCHMARKS_SPEC_FILE', help='benchmarks spec in yaml')
     parser.add_argument('--backend', default='Local', help='backend on which to run')
     parser.add_argument('--copyTo', dest='copy_to', help='copy files to this remote')
     parser.add_argument('--submitFailuresFile', dest='submit_failures_file',
@@ -2148,7 +2150,7 @@ def _gather_metrics_for_one_variant_of_one_benchmark(benchmark_dir_and_benchmark
                 result.append((metric_name_str, benchmark_variant, benchmark_dir, metric_value))
     return result
 
-def gather_benchmark_variant_metrics(benchmarks_spec_file, unified_metrics_file):
+def gather_benchmark_variant_metrics(benchmarks_spec_files, unified_metrics_file):
     """Gather benchmark variant metrics into one place.  We produce a unified pandas DataFrame which contains 
     for each benchmark variant, for each benchmark, for each metric, the value of the metric.
     Note that some cells of the DataFrame may be NaN if some benchmarks were not run or have failed for some variants.
@@ -2158,33 +2160,38 @@ def gather_benchmark_variant_metrics(benchmarks_spec_file, unified_metrics_file)
     by (metric_Name, benchmark_variant).
     """
 
-    benchmarks_spec_file = os.path.abspath(benchmarks_spec_file)
-    benchmarks_spec_dir = os.path.dirname(benchmarks_spec_file)
-    benchmarks_spec = util.misc.load_config(benchmarks_spec_file)
-    _log.info('benchmarks_spec=%s', benchmarks_spec)
-    
-    #_run('git', 'annex', 'get', '--include=metadata_with_gitlinks.json', *benchmarks_spec['benchmark_dirs_roots'])
-    benchmark_dirs = sorted([os.path.relpath(d) for d in _get_analysis_dirs_under(benchmarks_spec['benchmark_dirs_roots'])
-                             if os.path.isdir(os.path.join(d, 'benchmark_variants'))])
-    _log.info('benchmark_dirs=%s', benchmark_dirs)
+    unified_metrics_data = []
 
-    processing_stats = collections.Counter()
-    benchmark_variants = tuple(benchmarks_spec['benchmark_variants'].keys())
+    for benchmarks_spec_file in benchmarks_spec_files:
+        benchmarks_spec_file = os.path.abspath(benchmarks_spec_file)
+        benchmarks_spec_dir = os.path.dirname(benchmarks_spec_file)
+        benchmarks_spec = util.misc.load_config(benchmarks_spec_file)
+        _log.info('benchmarks_spec=%s', benchmarks_spec)
 
-    benchmark_dir_variant_pairs = tuple(itertools.product(benchmark_dirs, benchmark_variants))
-    git_annex_tool = tools.git_annex.GitAnnexTool()
-    with git_annex_tool.batching() as git_annex_tool:
-        for benchmark_dir, benchmark_variant in benchmark_dir_variant_pairs:
-            analysis_dir = os.path.abspath(os.path.join(benchmark_dir, 'benchmark_variants', benchmark_variant))
-            mdata_fname = os.path.join(analysis_dir, 'metadata_with_gitlinks.json')
-            if os.path.lexists(mdata_fname):
-                git_annex_tool.get(mdata_fname, now=False)
-            
-    with concurrent.futures.ProcessPoolExecutor(max_workers=util.misc.available_cpu_count()) as executor:
-        unified_metrics_data = sorted(functools.reduce(operator.concat,
-                                                       executor.map(_gather_metrics_for_one_variant_of_one_benchmark,
-                                                                    benchmark_dir_variant_pairs),
-                                                       []))
+        #_run('git', 'annex', 'get', '--include=metadata_with_gitlinks.json', *benchmarks_spec['benchmark_dirs_roots'])
+        benchmark_dirs = sorted([os.path.relpath(d) for d in _get_analysis_dirs_under(benchmarks_spec['benchmark_dirs_roots'])
+                                 if os.path.isdir(os.path.join(d, 'benchmark_variants'))])
+        _log.info('benchmark_dirs=%s', benchmark_dirs)
+
+        processing_stats = collections.Counter()
+        benchmark_variants = tuple(benchmarks_spec['benchmark_variants'].keys())
+
+        benchmark_dir_variant_pairs = tuple(itertools.product(benchmark_dirs, benchmark_variants))
+        git_annex_tool = tools.git_annex.GitAnnexTool()
+        with git_annex_tool.batching() as git_annex_tool:
+            for benchmark_dir, benchmark_variant in benchmark_dir_variant_pairs:
+                analysis_dir = os.path.abspath(os.path.join(benchmark_dir, 'benchmark_variants', benchmark_variant))
+                mdata_fname = os.path.join(analysis_dir, 'metadata_with_gitlinks.json')
+                if os.path.lexists(mdata_fname):
+                    git_annex_tool.get(mdata_fname, now=False)
+
+        with concurrent.futures.ProcessPoolExecutor(max_workers=util.misc.available_cpu_count()) as executor:
+            unified_metrics_data += sorted(functools.reduce(operator.concat,
+                                                            executor.map(_gather_metrics_for_one_variant_of_one_benchmark,
+                                                                         benchmark_dir_variant_pairs),
+                                                            []))
+
+    unified_metrics_data = sorted(unified_metrics_data)
 
     unified_metrics_data_dict = collections.OrderedDict()
     for metric_name, benchmark_variant, benchmark_dir, metric_value in unified_metrics_data:
@@ -2208,7 +2215,7 @@ def gather_benchmark_variant_metrics(benchmarks_spec_file, unified_metrics_file)
     #    df.to_html(out)
 
 def parser_gather_benchmark_variant_metrics(parser=argparse.ArgumentParser()):
-    parser.add_argument('benchmarks_spec_file', help='benchmarks spec in yaml')
+    parser.add_argument('benchmarks_spec_files', nargs='+', metavar='BENCHMARKS_SPEC_FILE', help='benchmarks spec in yaml')
     parser.add_argument('unified_metrics_file', help='where to save the gathered metrics')
     util.cmd.attach_main(parser, gather_benchmark_variant_metrics, split_args=True)
     return parser
