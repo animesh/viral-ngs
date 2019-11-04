@@ -1452,7 +1452,7 @@ def _submit_prepared_analysis(analysis_dir,
         raise RuntimeError('Unknown backend - ' + backend)
     if os.path.lexists(cromwell_opts_fname):
         os.remove(cromwell_opts_fname)
-    util.misc.chk(not os.path.exists(cromwell_opts_fnae),
+    util.misc.chk(not os.path.exists(cromwell_opts_fname),
                   'cromwell_opts should not yet exist: {}'.format(cromwell_opts_fname))
     _write_json(cromwell_opts_fname, **wf_opts_dict)
     #_write_json('execution_env.json', ncpus=util.misc.available_cpu_count())
