@@ -3136,7 +3136,7 @@ def finalize_analysis_dirs(cromwell_host, hours_ago=24, analysis_dirs_roots=None
                                                                                        git_annex_tool=git_annex_tool),
     #                                                                 _resolve_link_local_path,
     #                                                                 _resolve_link_gs,
-                                                            ], relpath='files')
+                                                            ], relpath=os.path.join('files', mdata['id']))
                     mdata_rel = util.misc.transform_json_data(mdata_rel, functools.partial(util.misc.maybe_wait_for_result, timeout=300))
 
                     _write_json(mdata_rel_fname, **mdata_rel)
