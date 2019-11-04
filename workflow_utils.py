@@ -1397,14 +1397,20 @@ def _submit_prepared_analysis(analysis_dir,
     if os.path.lexists(os.path.join(analysis_dir, 'metadata_with_gitlinks.json')):
         _log.info('Analysis dir %s already completed, not submitting', analysis_dir)
         return
-    if os.path.lexists(os.path.join(analysis_dir, 'cromwell_submit_output.txt')):
+
+    submit_id = datetime.datetime.now().strftime('%y%m%d%H%M%S')
+    _log.info('submit id for analysis dir %s is %s', analysis_dir, submit_id)
+    cromwell_submit_output_fname = os.path.join(analysis_dir, 'cromwell_submit_output.{}.txt'.format(submit_id))
+    cromwell_opts_fname = os.path.join(analysis_dir, 'cromwell_opts.{}.json'.format(submit_id))
+
+    if os.path.lexists(cromwell_submit_output_fname):
         try:
             _run('git', 'annex', 'get', 'cromwell_submit_output.txt', cwd=analysis_dir)
             submit_fn = os.path.join(analysis_dir, 'cromwell_submit_output.txt')
             cromwell_analysis_id = cromwell_tool.parse_cromwell_submit_output(submit_fn)
             mdata = cromwell_server.get_metadata(cromwell_analysis_id)
             if mdata.get('status', None) in ('Submitted', 'Running', 'Succeeded', 'Failed'):
-                _log.info('Analysis dir %s completed though not yet finalized; status=%s',
+                _log.info('Analysis dir %s submitted though not yet finalized; status=%s',
                           analysis_dir, mdata['status'])
                 return
         except Exception:
@@ -1444,11 +1450,11 @@ def _submit_prepared_analysis(analysis_dir,
         }
     else:
         raise RuntimeError('Unknown backend - ' + backend)
-    if os.path.lexists(os.path.join(analysis_dir, 'cromwell_opts.json')):
-        os.remove(os.path.join(analysis_dir, 'cromwell_opts.json'))
-    util.misc.chk(not os.path.exists(os.path.join(analysis_dir, 'cromwell_opts.json')),
-                  'cromwell_opts should not yet exist')
-    _write_json(os.path.join(analysis_dir, 'cromwell_opts.json'), **wf_opts_dict)
+    if os.path.lexists(cromwell_opts_fname):
+        os.remove(cromwell_opts_fname)
+    util.misc.chk(not os.path.exists(cromwell_opts_fnae),
+                  'cromwell_opts should not yet exist: {}'.format(cromwell_opts_fname))
+    _write_json(cromwell_opts_fname, **wf_opts_dict)
     #_write_json('execution_env.json', ncpus=util.misc.available_cpu_count())
 
     # add cromwell labels: dx project, the docker tag we ran on, etc.
@@ -1470,7 +1476,7 @@ def _submit_prepared_analysis(analysis_dir,
                                                       '-l',
                                                       os.path.join(analysis_dir, 'analysis_labels.json'),
                                                       '-o',
-                                                      os.path.join(analysis_dir, 'cromwell_opts.json'),
+                                                      cromwell_opts_fname,
                                                       '-p',
                                                       os.path.join(analysis_dir, 'imports.zip'),
                                                       '-h', cromwell_server_url,
@@ -1498,10 +1504,11 @@ def _submit_prepared_analysis(analysis_dir,
     _log.info('Cromwell returned with return code %d', cromwell_returncode)
     _log.info('Cromwell output is %s', cromwell_output_str)
 
-    util.file.dump_file(os.path.join(analysis_dir, 'cromwell_submit_output.txt'), cromwell_output_str)
+    util.file.dump_file(cromwell_submit_output_fname), cromwell_output_str)
     time.sleep(.5)
-    cromwell_analysis_id = cromwell_tool.parse_cromwell_submit_output(os.path.join(analysis_dir, 'cromwell_submit_output.txt'))
-    util.misc.chk(cromwell_analysis_id, 'Cromwell analysis id not found in cromwell submit output')
+    cromwell_analysis_id = cromwell_tool.parse_cromwell_submit_output(cromwell_submit_output_fname)
+    util.misc.chk(cromwell_analysis_id,
+                  'Cromwell analysis id not found in cromwell submit output {}'.format(cromwell_submit_output_fname))
 
     _log.debug('cromwell output is %s', cromwell_output_str)
 
