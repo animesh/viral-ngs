@@ -3029,12 +3029,12 @@ def finalize_analysis_dirs(cromwell_host, hours_ago=24, analysis_dirs_roots=None
         analysis_dirs = () if not analysis_dirs_roots else _get_analysis_dirs_under(analysis_dirs_roots)
         cromwell_analysis_id_to_dir = {}
         for analysis_dir in analysis_dirs:
-            fname = os.path.join(analysis_dir, 'cromwell_submit_output.txt')
-            _log.info('looking at cromwell output file %s; exists? %s', fname, os.path.lexists(fname))
-            if os.path.lexists(fname):
-                _log.info('looking at cromwell output file %s', fname)
-                cromwell_analysis_id = cromwell_tool.parse_cromwell_submit_output_str(git_annex_tool.slurp_file(fname))
-                cromwell_analysis_id_to_dir[cromwell_analysis_id] = analysis_dir
+            for fname in glob.glob(os.path.join(analysis_dir, 'cromwell_submit_output.*.txt')):
+                _log.info('looking at cromwell output file %s; exists? %s', fname, os.path.lexists(fname))
+                if os.path.lexists(fname):
+                    _log.info('looking at cromwell output file %s', fname)
+                    cromwell_analysis_id = cromwell_tool.parse_cromwell_submit_output_str(git_annex_tool.slurp_file(fname))
+                    cromwell_analysis_id_to_dir[cromwell_analysis_id] = analysis_dir
         _log.info('GOT ANALYSIS IDS %s', cromwell_analysis_id_to_dir)
         with git_annex_tool.batching() as git_annex_tool:
 
@@ -3057,14 +3057,23 @@ def finalize_analysis_dirs(cromwell_host, hours_ago=24, analysis_dirs_roots=None
                                                            for analysis_dirs_root in analysis_dirs_roots):
                             processing_stats['notUnderAnalysisDirsRoots'] += 1
                             continue
-                        cromwell_output_file = os.path.join(analysis_dir, 'cromwell_submit_output.txt')
-                        if git_annex_tool.maybe_get(cromwell_output_file):
-                            id_from_analysis_dir = cromwell_tool.parse_cromwell_submit_output(cromwell_output_file)
-                            if id_from_analysis_dir != mdata['id']:
-                                processing_stats['id from analysis dir does not match metadata id'] += 1
-                                _log.info('MISMATCH: analysis_dir=%s id=%s id_from_dir=%s',
-                                          analysis_dir, mdata['id'], id_from_analysis_dir)
-                                continue
+                        found_cromwell_match = False
+                        ids_from_analysis_dir = []
+                        for cromwell_output_file in glob.glob(os.path.join(analysis_dir, 'cromwell_submit_output.*.txt')):
+                            try:
+                                if git_annex_tool.maybe_get(cromwell_output_file):
+                                    id_from_analysis_dir = cromwell_tool.parse_cromwell_submit_output(cromwell_output_file)
+                                    ids_from_analysis_dir.append(id_from_analysis_dir)
+                                    if id_from_analysis_dir == mdata['id']:
+                                        found_cromwell_match = True
+                                        break
+                            except Exception as e:
+                                _log.warning('Could not parse cromwell output file %s: %s', cromwell_output_file, e)
+                        if not found_cromwell_match:
+                            processing_stats['id from analysis dir does not match metadata id'] += 1
+                            _log.info('MISMATCH: analysis_dir=%s id=%s ids_from_dir=%s',
+                                      analysis_dir, mdata['id'], ids_from_analysis_dir)
+
                     else:
                         processing_stats['noAnalysisDirForWorkflow'] += 1
                         continue
