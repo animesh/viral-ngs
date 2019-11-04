@@ -3049,7 +3049,8 @@ def finalize_analysis_dirs(cromwell_host, hours_ago=24, analysis_dirs_roots=None
                 assert mdata['id'] == wf['id']
                 assert 'workflowLog' not in mdata or mdata['workflowLog'].endswith('workflow.{}.log'.format(wf['id']))
                 analysis_dir = mdata['labels'].get('analysis_dir', cromwell_analysis_id_to_dir.get(mdata['id'], None))
-                analysis_dir = os.path.abspath(analysis_dir)
+                if analysis_dir:
+                    analysis_dir = os.path.abspath(analysis_dir)
                 _log.info('ID %s ADIR %s', mdata['id'], analysis_dir)
                 if not status_only:
                     if analysis_dir:
@@ -3073,6 +3074,7 @@ def finalize_analysis_dirs(cromwell_host, hours_ago=24, analysis_dirs_roots=None
                             processing_stats['id from analysis dir does not match metadata id'] += 1
                             _log.info('MISMATCH: analysis_dir=%s id=%s ids_from_dir=%s',
                                       analysis_dir, mdata['id'], ids_from_analysis_dir)
+                            continue
 
                     else:
                         processing_stats['noAnalysisDirForWorkflow'] += 1
