@@ -1504,7 +1504,7 @@ def _submit_prepared_analysis(analysis_dir,
     _log.info('Cromwell returned with return code %d', cromwell_returncode)
     _log.info('Cromwell output is %s', cromwell_output_str)
 
-    util.file.dump_file(cromwell_submit_output_fname), cromwell_output_str)
+    util.file.dump_file(cromwell_submit_output_fname, cromwell_output_str)
     time.sleep(.5)
     cromwell_analysis_id = cromwell_tool.parse_cromwell_submit_output(cromwell_submit_output_fname)
     util.misc.chk(cromwell_analysis_id,
