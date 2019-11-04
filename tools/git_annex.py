@@ -196,7 +196,7 @@ class GitAnnexTool(tools.Tool):
     def _add_command_to_batch(self, args, batch_args, output_acceptor, tool, priority, preproc=None, cwd=None):
         """Add command to current batch."""
         if batch_args:
-            util.misc.chk(tool == 'git-annex')
+            util.misc.chk_eq(tool, 'git-annex')
             args = tuple(args) + ('--batch',)
         tool_cmd = (os.path.join(self._get_bin_dir(), tool),) + tuple(map(str, args))
         batch = _Batch(priority=priority, tool_cmd=tool_cmd, cwd=cwd or os.getcwd(), preproc=preproc)
@@ -260,7 +260,7 @@ class GitAnnexTool(tools.Tool):
             if batch_calls[0].output_acceptor:
                 output = util.misc.maybe_decode(result.stdout).rstrip('\n')
                 call_outputs = output.split('\n') if batch_calls[0].batch_args else [output]
-                util.misc.chk(len(call_outputs) == len(batch_calls))
+                util.misc.chk_eq(len(call_outputs), len(batch_calls))
                 for batch_call, call_output in zip(batch_calls, call_outputs):
                     batch_call.output_acceptor(call_output)
         # end: for batch in sorted(self._batched_cmds, key=operator.attrgetter('priority'), reverse=True):
@@ -330,7 +330,7 @@ class GitAnnexTool(tools.Tool):
     def get_first_commit(self):
         """Return sha1 hash of first commit in repo (error if more than one)"""
         parentless_commits = self.execute_git_and_get_output(['rev-list', '--max-parents=0', 'HEAD']).strip().split('\n')
-        util.misc.chk(len(parentless_commits) == 1)
+        util.misc.chk_eq(len(parentless_commits), 1)
         return parentless_commits[0]
 
     @contextlib.contextmanager
@@ -459,11 +459,13 @@ class GitAnnexTool(tools.Tool):
         for batched_call in batched_calls:
             key, fname = batched_call.batch_args
             if fname in fnames_seen:
-                util.misc.chk(fnames_seen[fname] == key)
+                util.misc.chk(fnames_seen[fname] == key,
+                              '_fromkey_preproc: fname={} fnames_seen[fname]={} key={}'.format(fname, fnames_seen[fname], key))
                 continue
             fnames_seen[fname] = key
             if os.path.lexists(fname):
-                util.misc.chk(cls.lookupkey(fname) == key)
+                util.misc.chk(cls.lookupkey(fname) == key,
+                              '_fromkey_preproc: fname={} key={} lookupkey(fname)={}'.format(fname, key, cls.lookupkey(fname)))
                 continue
             new_batched_calls.append(batched_call)
                 
@@ -572,7 +574,7 @@ class GitAnnexTool(tools.Tool):
         """
         key_attrs = copy.copy(key_attrs)
         key_attrs['md5'] = key_attrs['md5'].lower()
-        util.misc.chk(key_attrs['backend'] == 'MD5E')
+        util.misc.chk_eq(key_attrs['backend'], 'MD5E')
         _log.debug('constuct_key from %s', key_attrs)
         return '{backend}-s{size}--{md5}{exts}'.format(exts=GitAnnexTool._get_file_exts_for_key(key_attrs['fname'],
                                                                                                 max_extension_length),
@@ -591,13 +593,13 @@ class GitAnnexTool(tools.Tool):
         # then, to preserve git-annex-get semantics, need to walk through the files under the tree.
 
         _log.debug('git-annex get %s (cwd=%s)', f, os.getcwd())
-        assert os.path.islink(f)
+        util.misc.chk(os.path.islink(f), 'not a link: {}'.format(f))
         f, link_target = self._get_link_into_annex(f)
         if not os.path.isfile(f):
             _log.debug('LOOK: f=%s link_target=%s cwd=%s abspath=%s dirname=%s',
                        f, link_target, os.getcwd(), os.path.abspath(f), os.path.dirname(os.path.abspath(f)))
             repo_dir = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(f)), link_target[:link_target.index('.git/')]))
-            util.misc.chk(os.path.isdir(os.path.join(repo_dir, '.git/annex')))
+            util.misc.chk(os.path.isdir(os.path.join(repo_dir, '.git/annex')), 'no annex: repo_dir={}'.format(repo_dir))
             self.execute_batch(['get'], batch_args=(os.path.abspath(f),), cwd=repo_dir)
 
     def maybe_get(self, f):
@@ -614,12 +616,12 @@ class GitAnnexTool(tools.Tool):
     def drop(self, f):
         """Drop the file from its local repo."""
         _log.debug('git-annex drop %s (cwd=%s)', f, os.getcwd())
-        assert os.path.islink(f)
+        util.misc.chk(os.path.islink(f), 'not a link: {}'.format(f))
         f, link_target = self._get_link_into_annex(f)
         if os.path.isfile(f):
             self.execute(['drop', os.path.basename(f)], cwd=os.path.dirname(os.path.abspath(f)))
-        assert os.path.islink(f)
-        assert not os.path.isfile(f)
+        util.misc.chk(os.path.islink(f), 'not a link: {}'.format(f))
+        util.misc.chk(not os.path.isfile(f), 'still a file: {}'.format(f))
 
     @_add_now_arg
     def calckey(self, path, output_acceptor=None):
@@ -719,7 +721,7 @@ class GitAnnexTool(tools.Tool):
 
         def canonicalize_url(self, url, **kw):
             """Return a canonical form of a URL that this remote handles"""
-            util.misc.chk(self.handles_url(url))
+            util.misc.chk(self.handles_url(url), 'not handling url: {}'.format(url))
             if uritools.isuri(url):
                 return url
             return uritools.uricompose(scheme='file', authority='', path=url)
@@ -748,7 +750,7 @@ class GitAnnexTool(tools.Tool):
                     canon_url = self.canonicalize_url(url)
                     
                     file_path = uritools.urisplit(canon_url).path
-                    util.misc.chk(os.path.isabs(file_path))
+                    util.misc.chk(os.path.isabs(file_path), 'not absolute: {}'.format(file_path))
                     
                     is_link_into_annex = ga_tool.is_link_into_annex(file_path)
                     if not (is_link_into_annex or os.path.isfile(file_path)): continue
@@ -966,10 +968,10 @@ class GitAnnexTool(tools.Tool):
         """Copy annexed file from `src` to `dest`, typically by just creating a new symlink into the annex."""
         src = os.path.abspath(src)
         dest = os.path.abspath(dest)
-        util.misc.chk(os.path.isfile(src) or util.file.is_broken_link(src))
+        util.misc.chk(os.path.isfile(src) or util.file.is_broken_link(src), 'neither file nor symlink: {}'.format(src))
         if os.path.isdir(dest):
             dest = os.path.join(dest, os.path.basename(src))
-        util.misc.chk(os.path.isdir(os.path.dirname(dest)))
+        util.misc.chk(os.path.isdir(os.path.dirname(dest)), 'not dir: {}'.format(dest))
         link_into_annex, target_of_link_into_annex = self._get_link_into_annex(src)
         if target_of_link_into_annex is None:
             shutil.copyfile(src, dest)
