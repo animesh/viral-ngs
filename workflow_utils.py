@@ -668,6 +668,12 @@ def _import_dx_analysis(dx_analysis_id, analysis_dir_pfx, git_annex_tool, dnanex
 
     analysis_dir = analysis_dir_pfx + dx_analysis_id
     util.file.mkdir_p(analysis_dir)
+    benchmark_variants_dir = os.path.join(analysis_dir, 'benchmark_variants')
+    util.file.mkdir_p(benchmark_variants_dir)
+    orig_variant_link = os.path.join(benchmark_variants_dir, 'orig')
+    if not os.path.lexists(orig_variant_link):
+        os.symlink('..', orig_variant_link)
+    util.misc.chk(os.readlink(orig_variant_link) == '..', 'error setting orig link {}'.format(orig_variant_link))
     mdata_orig = dnanexus_tool.describe(dx_analysis_id)
 
     # TODO: figure out proper handling for internal runinputs
@@ -4202,6 +4208,20 @@ def parser_fix_analysis_labels(parser=argparse.ArgumentParser()):
 __commands__.append(('fix_analysis_labels', parser_fix_analysis_labels))
 
 
+#########################################################################################################################
+
+def add_orig_benchmark_variant(dirnames):
+    """Add a benchmark variant corresponding to the original benchmark"""
+    for dirname in dirnames:
+        orig_variant_link = os.path.join(dirname, 'orig')
+        os.symlink('..', orig_variant_link)
+
+def parser_add_orig_benchmark_variant(parser=argparse.ArgumentParser()):
+    parser.add_argument('dirnames', nargs='+', help='benchmark variant dirs', metavar='FILENAME')
+    util.cmd.attach_main(parser, add_orig_benchmark_variant, split_args=True)
+    return parser
+
+__commands__.append(('add_orig_benchmark_variant', parser_add_orig_benchmark_variant))
 
 
 # * Epilog
