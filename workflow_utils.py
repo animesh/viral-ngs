@@ -2187,7 +2187,7 @@ def gather_benchmark_variant_metrics(benchmarks_spec_files, unified_metrics_file
         _log.info('benchmark_dirs=%s', benchmark_dirs)
 
         processing_stats = collections.Counter()
-        benchmark_variants = tuple(benchmarks_spec['benchmark_variants'].keys())
+        benchmark_variants = ('orig',) + tuple(benchmarks_spec['benchmark_variants'].keys())
 
         benchmark_dir_variant_pairs = tuple(itertools.product(benchmark_dirs, benchmark_variants))
         git_annex_tool = tools.git_annex.GitAnnexTool()
