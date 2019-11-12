@@ -6,7 +6,7 @@ workflow assemble_denovo {
   Array[File] reads_unmapped_bam_files
   call take_input {
     input:
-      reads_unmapped_bam_files = reads_unmapped_bam
+      reads_unmapped_bam_files = reads_unmapped_bam_files
   }
   
   scatter(reads_unmapped_bam in reads_unmapped_bam_files) {
@@ -35,5 +35,8 @@ workflow assemble_denovo {
 }
 
 task take_input {
-  Array[File] files
+  Array[File] reads_unmapped_bam_files
+  
+  command { }
+  output { }
 }
