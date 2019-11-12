@@ -15,17 +15,5 @@ workflow assemble_denovo_bulk {
     input:
       reads_unmapped_bam = filterfilter.taxfilt_bam
     }
-    
-    call assembly.scaffold as scaffoldscaffold {
-    input:
-      contigs_fasta = assembleassemble.contigs_fasta,
-      reads_bam = filterfilter.taxfilt_bam
-    }
-    
-    call assembly.refine_2x_and_plot as refine {
-    input:
-      assembly_fasta = scaffoldscaffold.scaffold_fasta,
-      reads_unmapped_bam = reads_unmapped_bam
-    }
   }
 }
