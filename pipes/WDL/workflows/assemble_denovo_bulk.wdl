@@ -6,25 +6,25 @@ workflow assemble_denovo_bulk {
   Array[File] reads_unmapped_bams
   
   scatter(reads_unmapped_bam in reads_unmapped_bams) {
-    call taxon_filter.filter_to_taxon {
+    call taxon_filter.filter_to_taxon as taxon_filter {
     input:
       reads_unmapped_bam = reads_unmapped_bam
     }
     
-    call assembly.assemble {
+    call assembly.assemble as assembleassemble {
     input:
-      reads_unmapped_bam = filter_to_taxon.taxfilt_bam
+      reads_unmapped_bam = taxon_filter.taxfilt_bam
     }
     
-    call assembly.scaffold {
+    call assembly.scaffold as scaffoldscaffold {
     input:
-      contigs_fasta = assemble.contigs_fasta,
-      reads_bam = filter_to_taxon.taxfilt_bam
+      contigs_fasta = assembleassemble.contigs_fasta,
+      reads_bam = taxon_filter.taxfilt_bam
     }
     
-    call assembly.refine_2x_and_plot {
+    call assembly.refine_2x_and_plot as refine {
     input:
-      assembly_fasta = scaffold.scaffold_fasta,
+      assembly_fasta = scaffoldscaffold.scaffold_fasta,
       reads_unmapped_bam = reads_unmapped_bam
     }
   }
