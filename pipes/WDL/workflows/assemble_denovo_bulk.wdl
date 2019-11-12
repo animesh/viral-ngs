@@ -6,8 +6,7 @@ workflow assemble_denovo_bulk {
   File reads_unmapped_bam
   Array[File]+ testing_scatter_files
   
-  scatter(testing_scatter in testing_scatter_files)
-  {
+  scatter(testing_scatter in testing_scatter_files) {
     call taxon_filter.filter_to_taxon {
     input:
       reads_unmapped_bam = reads_unmapped_bam
