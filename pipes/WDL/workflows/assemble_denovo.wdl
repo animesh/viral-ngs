@@ -3,7 +3,7 @@ import "tasks_assembly.wdl" as assembly
 
 workflow assemble_denovo {
   
-  Array[File] reads_unmapped_bam_files
+  File reads_unmapped_bam
 
   call taxon_filter.filter_to_taxon {
     input:
