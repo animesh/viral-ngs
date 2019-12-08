@@ -16,6 +16,28 @@ if [ ! -f $COMPILE_SUCCESS ]; then
   dx download --no-progress /build/$VERSION/$COMPILE_SUCCESS
 fi
 
+function dx_run_timeout_args {
+    #
+    # Construct command-line arguments for 'dx run' command
+    # to set a timeout on the applets it runs
+    #
+
+    local dx_workflow_id="$1"
+    local dx_extra_applet_id="$2"
+
+    local dx_workflow_applet_ids=$(dx describe $dx_workflow_id | grep applet- | awk '{print $2;}')
+    local dx_applet_ids="$dx_workflow_applet_ids $dx_extra_applet_id"
+    local comma=""
+    local timeout_args="{\"timeoutPolicyByExecutable\":{"
+    for dx_applet_id in $dx_applet_ids
+    do
+        timeout_args="${timeout_args}${comma}\"$dx_applet_id\":{\"*\":{\"hours\":3}}"
+        comma=","
+    done
+    timeout_args="$timeout_args}}"
+    echo $timeout_args
+}
+
 TEST_LAUNCH_ALL="dxWDL-execute_all-launched.txt"
 touch $TEST_LAUNCH_ALL
 for workflow in pipes/WDL/workflows/*.wdl; do
@@ -31,6 +53,7 @@ for workflow in pipes/WDL/workflows/*.wdl; do
            $dx_workflow_id -y --brief \
            -f $input_json \
            --name "$VERSION $workflow_name" \
+           --extra-args $timeout_args \
            --destination /tests/$VERSION/$workflow_name)
        if [ $? -eq 0 ]; then
            echo "Launched $workflow_name as $dx_job_id"

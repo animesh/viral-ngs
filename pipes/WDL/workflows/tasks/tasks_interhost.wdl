@@ -30,7 +30,7 @@ task multi_align_mafft_ref {
     docker: "quay.io/broadinstitute/viral-ngs"
     memory: "7 GB"
     cpu: 8
-    dx_instance_type: "mem1_ssd1_x8"
+    dx_instance_type: "mem1_ssd1_v2_x8"
   }
 }
 
@@ -64,7 +64,7 @@ task multi_align_mafft {
     docker: "quay.io/broadinstitute/viral-ngs"
     memory: "7 GB"
     cpu: 8
-    dx_instance_type: "mem1_ssd1_x8"
+    dx_instance_type: "mem1_ssd1_v2_x8"
   }
 }
 

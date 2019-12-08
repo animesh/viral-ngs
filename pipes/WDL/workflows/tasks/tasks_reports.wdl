@@ -91,7 +91,7 @@ task plot_coverage {
     docker: "quay.io/broadinstitute/viral-ngs"
     memory: "3500 MB"
     cpu: 4
-    dx_instance_type: "mem1_ssd1_x8"
+    dx_instance_type: "mem1_ssd1_v2_x8"
   }
 }
 
@@ -116,7 +116,7 @@ task coverage_report {
     docker: "quay.io/broadinstitute/viral-ngs"
     memory: "2000 MB"
     cpu: 2
-    dx_instance_type: "mem1_ssd2_x4"
+    dx_instance_type: "mem1_ssd2_v2_x4"
   }
 }
 
@@ -139,7 +139,7 @@ task fastqc {
     memory: "2 GB"
     cpu: 1
     docker: "quay.io/broadinstitute/viral-ngs"
-    dx_instance_type: "mem1_ssd1_x4"
+    dx_instance_type: "mem1_ssd1_v2_x4"
   }
 }
 
@@ -171,7 +171,7 @@ task spikein_report {
     memory: "3 GB"
     cpu: 2
     docker: "quay.io/broadinstitute/viral-ngs"
-    dx_instance_type: "mem1_ssd1_x4"
+    dx_instance_type: "mem1_ssd1_v2_x4"
   }
 }
 
