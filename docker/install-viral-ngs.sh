@@ -31,12 +31,12 @@ sync
 if [[ "$1" == "minimal" ]]; then
 	# a more minimal set of tools (smaller docker image?)
 	conda install -y \
-		-q $CONDA_CHANNEL_STRING \
+		$CONDA_CHANNEL_STRING \
 		--file "$VIRAL_NGS_PATH/requirements-minimal.txt" \
 		-p "${CONDA_PREFIX}"
 else
 	conda install -y \
-		-q $CONDA_CHANNEL_STRING \
+		$CONDA_CHANNEL_STRING \
 		--file "$VIRAL_NGS_PATH/requirements-py3.txt" \
 		--file "$VIRAL_NGS_PATH/requirements-conda.txt" \
 		--file "$VIRAL_NGS_PATH/requirements-conda-tests.txt" \
