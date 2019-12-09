@@ -49,9 +49,9 @@ task illumina_demux {
   Boolean? forceGC=true
 
 
-  parameter_meta {
-    flowcell_tgz : "stream" # for DNAnexus, until WDL implements the File| type
-  }
+#  parameter_meta {
+#    flowcell_tgz : "stream" # for DNAnexus, until WDL implements the File| type
+#  }
 
   command {
     set -ex -o pipefail
@@ -169,9 +169,9 @@ task illumina_demux {
 
   runtime {
     docker: "quay.io/broadinstitute/viral-ngs"
-    memory: "16 GB"
-    cpu: 36
-    dx_instance_type: "mem1_ssd2_x36"
+    memory: "30 GB"
+    cpu: 16
+    dx_instance_type: "mem1_ssd2_v2_x16"
     preemptible: 0  # this is the very first operation before scatter, so let's get it done quickly & reliably
   }
 }
@@ -207,7 +207,7 @@ task merge_and_reheader_bams {
     docker: "quay.io/broadinstitute/viral-ngs"
     memory: "2000 MB"
     cpu: 2
-    dx_instance_type: "mem1_ssd2_x4"
+    dx_instance_type: "mem1_ssd2_v2_x4"
   }
 }
 

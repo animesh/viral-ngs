@@ -39,15 +39,17 @@ else # if it does not exist, we need to install miniconda
         export PATH="$MINICONDA_DIR/bin:$PATH"
     fi
     hash -r
-    conda config --set always_yes yes --set changeps1 no
-    conda config --add channels r
+    conda install -y conda==4.7.10 # specify "conda update -c conda-canary conda" for pre-release conda
+    conda config --set always_yes yes --set changeps1 no --set remote_max_retries 6 #--set channel_priority strict
     conda config --add channels defaults
-    conda config --add channels conda-forge
     conda config --add channels bioconda
+    conda config --add channels conda-forge
     conda config --add channels broad-viral
-    conda install --quiet -y conda #conda=4.2 # pin to 4.2.* until this is fixed: https://github.com/conda/conda-build/issues/1666
-    conda config --set auto_update_conda false
-    conda install --quiet -y java-jdk==8.0.112
+    conda config --show-sources # print channels
+    # Use recommendations from https://github.com/bioconda/bioconda-recipes/issues/13774
+    #conda update --quiet -y conda
+    # conda config --set channel_priority strict
 fi
 
+# update certs
 conda info -a # for debugging
