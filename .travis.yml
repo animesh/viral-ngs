@@ -1,4 +1,4 @@
-dist: trusty
+dist: bionic
 os: linux
 
 git:
@@ -37,12 +37,7 @@ jobs:
   include:
 
     - language: java
-      jdk: oraclejdk8
-      sudo: required
-      addons:
-        apt:
-          packages:
-          - docker-ce
+      jdk: openjdk11
       env:
         - TRAVIS_JOB=docker_wdl
         # DOCKER_USER (for Quay.io)
@@ -76,7 +71,6 @@ jobs:
         # build DNAnexus pipelines and launch a few test executions
         - travis/build-dx.sh
         - travis/tests-dx.sh
-        #- if [ "$TRAVIS_BRANCH" = "master" ]; then travis/tests-dx.sh; fi
         # test Cromwell local execution engine
         - travis/tests-cromwell.sh
       before_cache:
@@ -101,7 +95,7 @@ jobs:
     #    - travis/list-docker-tags.sh | tail -1 > $CACHE_DIR/old-docker-tag.txt
     #
     #- language: java
-    #  jdk: oraclejdk8
+    #  jdk: openjdk11
     #  stage: build
     #  env:
     #    - TRAVIS_JOB=build_dxWDL
@@ -115,7 +109,7 @@ jobs:
     #    - travis/validate-wdl.sh
     #    - travis/build-dx.sh
     #- language: java
-    #  jdk: oraclejdk8
+    #  jdk: openjdk11
     #  stage: test
     #  env:
     #    - TRAVIS_JOB=test_cromwell
