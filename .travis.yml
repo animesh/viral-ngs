@@ -67,7 +67,7 @@ jobs:
         - if docker pull $OLD_DOCKER_TAG; then _CACHE_FROM="--cache-from $OLD_DOCKER_TAG"; else _CACHE_FROM=""; fi
         # build new docker image
         - echo "building docker"
-        - travis_wait 30 docker build -t local/viral-ngs:build $_CACHE_FROM .;
+        - docker build -t local/viral-ngs:build $_CACHE_FROM .;
         # deploy docker image
         - travis/deploy-docker.sh
         # version and validate WDL code
