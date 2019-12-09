@@ -136,21 +136,21 @@ jobs:
       install: travis/install-pip-docs.sh
       script: travis/build-docs.sh
 
-    - language: python
-      python: 3.6
-      sudo: required
-      #stage: test
-      env:
-        - TRAVIS_JOB=build_conda
-        # $ANACONDA_TOKEN for uploading builds to anaconda.org ("broad-viral" channel)
-        - secure: SLPB86BpMIiNncMioxVk9cLrqaSNt8F1QDtxkrdLq9j7wXzFqGa7cipG6UJ6Om7GvoF49DpACfGPTA4ycr+T4cH3pWXpBHrBhV8TyKJb23cOmg5+7zqJQTzuwNqKOT7t9rnBkf1uzVXBcgqKaD6XW/nEvNFK00I0cvjlCp8vgxE=
-      install:
-        - source travis/install-conda.sh
-        - travis/install-conda-build.sh
-      script:
-        - travis/build-conda.sh
-      before_cache:
-        - conda clean --all --yes
+#    - language: python
+#      python: 3.6
+#      sudo: required
+#      #stage: test
+#      env:
+#        - TRAVIS_JOB=build_conda
+#        # $ANACONDA_TOKEN for uploading builds to anaconda.org ("broad-viral" channel)
+#        - secure: SLPB86BpMIiNncMioxVk9cLrqaSNt8F1QDtxkrdLq9j7wXzFqGa7cipG6UJ6Om7GvoF49DpACfGPTA4ycr+T4cH3pWXpBHrBhV8TyKJb23cOmg5+7zqJQTzuwNqKOT7t9rnBkf1uzVXBcgqKaD6XW/nEvNFK00I0cvjlCp8vgxE=
+#      install:
+#        - source travis/install-conda.sh
+#        - travis/install-conda-build.sh
+#      script:
+#        - travis/build-conda.sh
+#      before_cache:
+#        - conda clean --all --yes
 
     - language: python
       python: 3.6
@@ -209,33 +209,3 @@ jobs:
     #  after_success:
     #    - mv coverage/.coverage .
     #    - coveralls
-    #
-    #- language: generic
-    #  stage: test
-    #  env:
-    #    - TRAVIS_JOB=build_conda_in_docker
-    #    # $ANACONDA_TOKEN for uploading builds to anaconda.org ("broad-viral" channel)
-    #    - secure: SLPB86BpMIiNncMioxVk9cLrqaSNt8F1QDtxkrdLq9j7wXzFqGa7cipG6UJ6Om7GvoF49DpACfGPTA4ycr+T4cH3pWXpBHrBhV8TyKJb23cOmg5+7zqJQTzuwNqKOT7t9rnBkf1uzVXBcgqKaD6XW/nEvNFK00I0cvjlCp8vgxE=
-    #  install:
-    #    - DOCKER_TAG=`travis/list-docker-tags.sh | tail -1`
-    #    - docker pull $DOCKER_TAG
-    #    - travis/install-gatk.sh
-    #  script:
-    #    - docker run -v $GATK_PATH:/gatk -e _JAVA_OPTIONS -e TRAVIS_BRANCH -e TRAVIS_PULL_REQUEST -e TRAVIS_TAG -e TRAVIS_COMMIT -e ANACONDA_TOKEN --entrypoint /bin/bash $DOCKER_TAG -c 'set -e; cd /opt/viral-ngs/source; gatk3-register /gatk/GenomeAnalysisTK.jar; travis/install-conda-build.sh; travis/build-conda.sh'
-
-#        - os: osx
-#          language: generic
-#          stage: test
-#          env:
-#              - TRAVIS_JOB=test_osx
-#              - TRAVIS_OSX_PYTHON_VERSION=py36
-#              - TRAVIS_PYTHON_VERSION=3.6
-#          before_install:
-#              - travis/before_install.sh
-#              # Under OSX, some versions of ruby seem to cause this error.
-#              # See: https://github.com/travis-ci/travis-ci/issues/6307
-#              - rvm get head
-#          after_script:
-#              # correct post-build failure on OSX due to non-zero exit code
-#              - set +e
-  
