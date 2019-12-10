@@ -550,7 +550,7 @@ def order_and_orient(inFasta, inReference, outFasta,
         scaffolds = [tuple(Bio.SeqIO.parse(scaffolds_fasta[ref_num], 'fasta')) for ref_num in range(n_refs)]
         base_counts = [sum([len(seg.seq.ungap('N')) for seg in scaffold]) \
             if len(scaffold)==n_genome_segments else 0 for scaffold in scaffolds]
-        best_ref_num = numpy.argmax(base_counts)
+        best_ref_num = 0 # numpy.argmax(base_counts)
         if len(scaffolds[best_ref_num]) != n_genome_segments:
             raise IncompleteAssemblyError(len(scaffolds[best_ref_num]), n_genome_segments)
         log.info('base_counts={} best_ref_num={}'.format(base_counts, best_ref_num))
