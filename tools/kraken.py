@@ -39,7 +39,7 @@ class Kraken(tools.Tool):
         self.subtool_name = self.subtool_name if hasattr(self, "subtool_name") else "kraken"
         if not install_methods:
             install_methods = []
-            install_methods.append(tools.CondaPackage('kraken', executable=self.subtool_name, version=KRAKEN_VERSION, channel='broad-viral'))
+            install_methods.append(tools.CondaPackage('kraken', executable=self.subtool_name, version=KRAKEN_VERSION, channel='broad-viral', env="kraken-env"))
         super(Kraken, self).__init__(install_methods=install_methods)
 
     def version(self):
