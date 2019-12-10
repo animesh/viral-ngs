@@ -35,7 +35,7 @@ workflow demux_plus {
         }
     }
 
-    call metagenomics.krakenuniq as krakenuniq {
+    call metagenomics.kraken as kraken {
         input:
             reads_unmapped_bam = illumina_demux.raw_reads_unaligned_bams
     }
@@ -47,6 +47,6 @@ workflow demux_plus {
 
     call reports.aggregate_metagenomics_reports as metag_summary_report {
         input:
-            kraken_summary_reports = krakenuniq.krakenuniq_summary_reports
+            kraken_summary_reports = kraken.kraken_summary_reports
     }
 }
