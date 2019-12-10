@@ -1101,7 +1101,40 @@ def filter_bam_to_taxa(in_bam, read_IDs_to_tax_IDs, out_bam,
             tools.samtools.SamtoolsTool().dumpHeader(in_bam,out_bam)
 __commands__.append(('filter_bam_to_taxa', parser_filter_bam_to_taxa))
 
+def kraken_library_ids(library):
+    '''Parse gi/accession from ids of fasta files in library directory. '''
+    library_taxids = set()
+    library_gis = set()
+    library_accessions = set()
+    for dirpath, dirnames, filenames in os.walk(library, followlinks=True):
+        for filename in filenames:
+            if not filename.endswith('.fna') and not filename.endswith('.fa') and not filename.endswith('.ffn'):
+                continue
+            filepath = os.path.join(dirpath, filename)
+            for seqr in SeqIO.parse(filepath, 'fasta'):
+                name = seqr.name
+                # Search for encoded taxid
+                mo = re.search('kraken:taxid\|(\d+)\|', name)
+                if mo:
+                    taxid = int(mo.group(1))
+                    library_taxids.add(taxid)
+                    continue
+                # Search for gi
+                mo = re.search('gi\|(\d+)\|', name)
+                if mo:
+                    gi = int(mo.group(1))
+                    library_gis.add(gi)
+                    continue
+                # Search for accession
+                mo = re.search('([A-Z]+\d+\.\d+)', name)
+                if mo:
+                    accession = mo.group(1)
+                    library_accessions.add(accession)
+    return library_taxids, library_gis, library_accessions
 
+
+class KrakenBuildError(Exception):
+    '''Error while building kraken database.'''
 
 def parser_kraken_taxlevel_summary(parser=argparse.ArgumentParser()):
     parser.add_argument('summary_files_in', nargs="+", help='Kraken-format summary text file with tab-delimited taxonomic levels.')
