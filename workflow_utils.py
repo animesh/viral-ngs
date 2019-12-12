@@ -2653,6 +2653,11 @@ def show_benchmark_comparisons_summary_html(benchmarks_spec_file='benchmarks_spe
                     #txt('')
 
                     data = unified_metrics[metric]
+                    if variants[0] not in data or variants[1] not in data:
+                        tags.br()
+                        txt('NO DATA')
+                        tags.br()
+                        continue
                     data['sample_name'] = unified_metrics['labels.sample_name'][variants[0]]
 
                     def get_data_differing_by_margin(data, std_fraction):
