@@ -3707,7 +3707,11 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
                                                 orig_val = functools.reduce(lambda d, k: d.get(k, None) if _is_mapping(d) else d[k],
                                                                             key, mdata)
                                             except AttributeError:
-                                                raise RuntimeError('could not get key {}'.format(key))
+                                                orig_val = None
+                                                #raise RuntimeError('could not get key {}'.format(key))
+                                            except IndexError:
+                                                orig_val = None
+                                                #raise RuntimeError('could not get key {}'.format(key))
                                             if _is_git_link(orig_val):
                                                 fname = os.path.relpath(orig_val['$git_link'], analysis_dir)
                                                 href_rel = os.path.join('/', benchmark_dir, 'benchmark_variants', variant, fname)
