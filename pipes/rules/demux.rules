@@ -100,8 +100,8 @@ rule illumina_demux:
         for opt in ('minimum_base_quality', 'max_mismatches', 'min_mismatch_delta', 'max_no_calls', 'read_structure', 'minimum_quality', 'run_start_date'):
             if lane.get(opt):
                 opts += ' --%s=%s' % (opt, lane[opt])
-        shell("{config[bin_dir]}/illumina.py illumina_demux {input[0]} {wildcards.lane} {outdir} --sampleSheet={input[1]} --sequencing_center={params.center} --outMetrics={output[1]} --commonBarcodes={output[2]} --flowcell={wildcards.flowcell} {opts}")
-        shell("{config[bin_dir]}/illumina.py guess_barcodes --expected_assigned_fraction=0 {output[2]} {output[1]} {output[3]}")
+        shell("{config[docker_cmd]} illumina.py illumina_demux {input[0]} {wildcards.lane} {outdir} --sampleSheet={input[1]} --sequencing_center={params.center} --outMetrics={output[1]} --commonBarcodes={output[2]} --flowcell={wildcards.flowcell} {opts}")
+        shell("{config[docker_cmd]} illumina.py guess_barcodes --expected_assigned_fraction=0 {output[2]} {output[1]} {output[3]}")
 
 
 def demux_move_bams_inputs(wildcards):
@@ -136,7 +136,7 @@ rule bams_from_fastq:
         center = config["seq_center"]
     run:
         makedirs(os.path.join(config['data_dir'], config['subdirs']['source']))
-        shell("{config[bin_dir]}/illumina.py miseq_fastq_to_bam {output} {input[2]} {input[0]} --inFastq2 {input[1]} --runInfo {input[3]} --sequencing_center {params.center}")
+        shell("{config[docker_cmd]} illumina.py miseq_fastq_to_bam {output} {input[2]} {input[0]} --inFastq2 {input[1]} --runInfo {input[3]} --sequencing_center {params.center}")
 
 ruleorder: move_bams_demux > bams_from_fastq
 

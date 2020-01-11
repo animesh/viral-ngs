@@ -29,7 +29,7 @@ rule isnvs_per_sample:
         maxBias           = "--maxBias {}".format(config['vphaser_max_bins']) if 'vphaser_max_bins' in config else ""
     run:
         makedirs(config["data_dir"]+'/'+config["subdirs"]["intrahost"])
-        shell("{config[bin_dir]}/intrahost.py vphaser_one_sample {input} {output} --vphaserNumThreads {resources.threads} --removeDoublyMappedReads {params.minReadsPerStrand} {params.maxBias}")
+        shell("{config[docker_cmd]} intrahost.py vphaser_one_sample {input} {output} --vphaserNumThreads {resources.threads} --removeDoublyMappedReads {params.minReadsPerStrand} {params.maxBias}")
             
 rule isnvs_vcf:
     input:
@@ -58,15 +58,15 @@ rule isnvs_vcf:
         snpEff_ref    = " ".join(config["accessions_for_ref_genome_build"]),
         email_address = "--emailAddress "+config["email_point_of_contact_for_ncbi"] if config["email_point_of_contact_for_ncbi"] else ""
     run:
-        shell("{config[bin_dir]}/intrahost.py merge_to_vcf {input.ref_genome} {output.raw_vcf}"
+        shell("{config[docker_cmd]} intrahost.py merge_to_vcf {input.ref_genome} {output.raw_vcf}"
             + " --samples " + " ".join(read_samples_file(config["samples_assembly"]))
             + " --isnvs " + " ".join(input.isnv_files)
             + " --alignments " + " ".join(input.multiple_alignment_fastas)
             + " --strip_chr_version"
             + " --parse_accession" # the vcf chr column must match a chr known to snpEff; we have an option to parse out only the accession
             )
-        shell("{config[bin_dir]}/interhost.py snpEff {output.raw_vcf} {params.snpEff_ref} {output.annotated_vcf} {params.email_address}")
-        shell("{config[bin_dir]}/intrahost.py iSNV_table {output.annotated_vcf} {output.annotation_text}")
+        shell("{config[docker_cmd]} interhost.py snpEff {output.raw_vcf} {params.snpEff_ref} {output.annotated_vcf} {params.email_address}")
+        shell("{config[docker_cmd]} intrahost.py iSNV_table {output.annotated_vcf} {output.annotation_text}")
             
 rule isnvs_vcf_filtered:
     input:
@@ -95,7 +95,7 @@ rule isnvs_vcf_filtered:
         email_address = "--emailAddress "+config["email_point_of_contact_for_ncbi"] if config["email_point_of_contact_for_ncbi"] else "",
         naiveFilter  = "--naive_filter" if config["vcf_merge_naive_filter"] else ""
     run:
-        shell("{config[bin_dir]}/intrahost.py merge_to_vcf {input.ref_genome} {output.raw_vcf}"
+        shell("{config[docker_cmd]} intrahost.py merge_to_vcf {input.ref_genome} {output.raw_vcf}"
             + " --samples " + " ".join(read_samples_file(config["samples_assembly"]))
             + " --isnvs " + " ".join(input.isnv_files)
             + " --alignments " + " ".join(input.multiple_alignment_fastas)
@@ -103,6 +103,6 @@ rule isnvs_vcf_filtered:
             + " {params.naiveFilter}"
             + " --parse_accession" # the vcf chr column must match a chr known to snpEff; we have an option to parse out only the accession
             )
-        shell("{config[bin_dir]}/interhost.py snpEff {output.raw_vcf} {params.snpEff_ref} {output.annotated_vcf} {params.emailAddress}")
-        shell("{config[bin_dir]}/intrahost.py iSNV_table {output.annotated_vcf} {output.annotation_text}")
+        shell("{config[docker_cmd]} interhost.py snpEff {output.raw_vcf} {params.snpEff_ref} {output.annotated_vcf} {params.emailAddress}")
+        shell("{config[docker_cmd]} intrahost.py iSNV_table {output.annotated_vcf} {output.annotation_text}")
 

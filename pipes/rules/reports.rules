@@ -76,7 +76,7 @@ rule consolidate_fastqc_on_all_runs:
     params: 
         logid="all"
     shell:  
-        "{config[bin_dir]}/reports.py consolidate_fastqc {input} {output}"
+        "{config[docker_cmd]} reports.py consolidate_fastqc {input} {output}"
 
 rule consolidate_fastqc_on_all_assemblies:
     input:
@@ -87,7 +87,7 @@ rule consolidate_fastqc_on_all_assemblies:
     params: 
         logid = "all"
     shell:  
-        "{config[bin_dir]}/reports.py consolidate_fastqc {input} {output}"
+        "{config[docker_cmd]} reports.py consolidate_fastqc {input} {output}"
 
 #-----------SPIKE-INS------------------
 
@@ -108,7 +108,7 @@ if config.get("spikeins_db"):
         run:
             makedirs(os.path.join(config["reports_dir"], 'spike_count'))
             makedirs(os.path.join(config["tmp_dir"], config["subdirs"]["depletion"]))
-            shell("{config[bin_dir]}/read_utils.py bwamem_idxstats {input.input_bam} {input.spikeins_db} --outStats {config[tmp_dir]}/{output[0]} --minScoreToFilter 60")
+            shell("{config[docker_cmd]} read_utils.py bwamem_idxstats {input.input_bam} {input.spikeins_db} --outStats {config[tmp_dir]}/{output[0]} --minScoreToFilter 60")
             shell("sort -b -r -n -k3 {config[tmp_dir]}/{output[0]} > {output[0]}")
             shell("head -n 3 {output[0]} > {output[1]}")
 
@@ -120,4 +120,4 @@ if config.get("spikeins_db"):
         output: 
             '{dir}/summary.spike_count.txt'
         shell:  
-            "{config[bin_dir]}/reports.py consolidate_spike_count {wildcards.dir}/spike_count {output}"
+            "{config[docker_cmd]} reports.py consolidate_spike_count {wildcards.dir}/spike_count {output}"

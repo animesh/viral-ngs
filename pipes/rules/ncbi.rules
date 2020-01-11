@@ -30,8 +30,8 @@ rule download_reference_genome:
         accessionsList=" ".join(config["accessions_for_ref_genome_build"])
     run:
         containing_directory = os.path.dirname(output.fasta[0])
-        shell("{config[bin_dir]}/ncbi.py fetch_fastas {params.emailAddress} "+containing_directory+" {params.accessionsList} --combinedFilePrefix reference --removeSeparateFiles --forceOverwrite")
-        shell("{config[bin_dir]}/ncbi.py fetch_feature_tables {params.emailAddress} "+containing_directory+" {params.accessionsList} --forceOverwrite")
+        shell("{config[docker_cmd]} ncbi.py fetch_fastas {params.emailAddress} "+containing_directory+" {params.accessionsList} --combinedFilePrefix reference --removeSeparateFiles --forceOverwrite")
+        shell("{config[docker_cmd]} ncbi.py fetch_feature_tables {params.emailAddress} "+containing_directory+" {params.accessionsList} --forceOverwrite")
 
 
 rule download_lastal_sources:
@@ -43,7 +43,7 @@ rule download_lastal_sources:
         fasta_file_prefix = os.path.splitext(os.path.basename(output.fasta[0]))[0]
         accessions_list   = " ".join(read_accessions_file(config["accessions_file_for_lastal_db_build"]) if "accessions_file_for_lastal_db_build" in config and len(config["accessions_file_for_lastal_db_build"])>0 else config["accessions_for_ref_genome_build"])
         email_address     = config["email_point_of_contact_for_ncbi"]
-        shell("{config[bin_dir]}/ncbi.py fetch_fastas {email_address} "+fasta_path_prefix+" {accessions_list} --combinedFilePrefix "+fasta_file_prefix+" --removeSeparateFiles --forceOverwrite --chunkSize 300")
+        shell("{config[docker_cmd]} ncbi.py fetch_fastas {email_address} "+fasta_path_prefix+" {accessions_list} --combinedFilePrefix "+fasta_file_prefix+" --removeSeparateFiles --forceOverwrite --chunkSize 300")
 
 
 rule download_refsel_sources:
@@ -55,7 +55,7 @@ rule download_refsel_sources:
         fasta_file_prefix = os.path.splitext(os.path.basename(output.fasta[0]))[0]
         accessions_list   = " ".join(read_accessions_file(config["accessions_file_for_refsel_db_build"]) if "accessions_file_for_refsel_db_build" in config and len(config["accessions_file_for_refsel_db_build"])>0 else config["accessions_for_ref_genome_build"])
         email_address     = config["email_point_of_contact_for_ncbi"]
-        shell("{config[bin_dir]}/ncbi.py fetch_fastas {email_address} "+fasta_path_prefix+" {accessions_list} --combinedFilePrefix "+fasta_file_prefix+" --removeSeparateFiles --forceOverwrite --chunkSize 300")
+        shell("{config[docker_cmd]} ncbi.py fetch_fastas {email_address} "+fasta_path_prefix+" {accessions_list} --combinedFilePrefix "+fasta_file_prefix+" --removeSeparateFiles --forceOverwrite --chunkSize 300")
 
 
         
@@ -84,7 +84,7 @@ rule annot_transfer:
                                         data_dir=config["data_dir"],
                                         subdir=config["subdirs"]["multialign_ref"],
                                         chrom=range(1, len(config["accessions_for_ref_genome_build"])+1)):
-            shell("{config[bin_dir]}/ncbi.py tbl_transfer_prealigned " + alignmentFile + " {input.ref_genome} {input.ref_annot} "+output_path_prefix+" --oob_clip")
+            shell("{config[docker_cmd]} ncbi.py tbl_transfer_prealigned " + alignmentFile + " {input.ref_genome} {input.ref_annot} "+output_path_prefix+" --oob_clip")
 
 rule prepare_genbank:
     input:
@@ -109,7 +109,7 @@ rule prepare_genbank:
         comment              = config.get('genbank',{}).get('comment', ''),
         logid                = "all"
     shell:
-        ' '.join(["{config[bin_dir]}/ncbi.py prep_genbank_files",
+        ' '.join(["{config[docker_cmd]} ncbi.py prep_genbank_files",
             "{params.genbank_template} {input.fasta_files}",
             "{config[data_dir]}/{config[subdirs][annot]}",
             "--master_source_table {params.genbank_source_table}",

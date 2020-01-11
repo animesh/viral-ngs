@@ -53,7 +53,7 @@ rule assembly_report:
     resources: mem=2
     params: LSF=config.get('LSF_queues', {}).get('short', '-W 4:00'),
             logid="{sample}"
-    shell:  "{config[bin_dir]}/reports.py assembly_stats {wildcards.sample} {output}" \
+    shell:  "{config[docker_cmd]} reports.py assembly_stats {wildcards.sample} {output}" \
             " --assembly_dir {config[data_dir]}/{config[subdirs][assembly]}" \
             " --assembly_tmp {config[tmp_dir]}/{config[subdirs][assembly]}" \
             " --align_dir {config[data_dir]}/{config[subdirs][align_self]}" \
