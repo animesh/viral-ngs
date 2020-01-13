@@ -28,6 +28,7 @@ import util.misc
 import tools
 import tools.blast
 import tools.last
+import tools.kaiju
 import tools.prinseq
 import tools.bmtagger
 import tools.picard
@@ -279,6 +280,67 @@ def parser_filter_lastal_bam(parser=argparse.ArgumentParser()):
 
 
 __commands__.append(('filter_lastal_bam', parser_filter_lastal_bam))
+
+# =======================
+# ***  filter_kaiju  ***
+# =======================
+
+
+def filter_kaiju_bam(
+    inBam,
+    refDbFaa,
+    outBam,
+    JVMmemory=None, threads=None
+):
+    ''' Restrict input reads to those that align to the given
+        reference database using kaiju.
+    '''
+    join = os.path.join
+    with util.file.tmp_dir('-kaijudb') as tmp_db_dir:
+        kaiju_tool = tools.kaiju.Kaiju()
+
+        # TODO: support nucleotide input dbs, then translate to three or six kaiju dbs.
+        # TODO: filter any invalid chars from protein sequences (for wildcards maybe generate all sequences they denote,
+        # up to a limit)
+
+        db_prefix = join(tmp_db_dir, 'kaiju_db')
+        kaiju_tool.build(db_prefix=db_prefix, protein_fastas=[refDbFaa], translate_accessions=True, default_tax_id='10239',
+                         threads=threads)
+
+        nodes_dmp_viruses = '10239\t|\t1\t|\tsuperkingdom\t|\t\t|\t9\t|\t0\t|\t1\t|\t0\t|\t0\t|\t0\t|\t0\t|\t0\t|\t\t|\n'
+        names_dmp_viruses = '10239\t|\tviruses\t|\t\t|\tblast name\t|\n'
+        tax_db_dir = join(tmp_db_dir, 'tax_db')
+        util.file.mkdir_p(tax_db_dir)
+        util.file.dump_file(join(tax_db_dir, 'nodes.dmp'), nodes_dmp_viruses)
+        util.file.dump_file(join(tax_db_dir, 'names.dmp'), names_dmp_viruses)
+
+        out_reads = join(tmp_db_dir, 'reads.fa.gz')
+
+        kaiju_tool.classify(db=db_prefix + '.fmi', tax_db=tax_db_dir, in_bam=inBam, output_reads=out_reads)
+        hitList = join(tmp_db_dir, 'read_names.txt')
+        #with open_or_gzopen(out_reads, 'rt') as out_reads_f, open(hitList, 'wt') as hitList_f:
+        #    for line in out_reads_f:
+                
+        subprocess.check_call("zgrep -e '10239$' {} | cut -f 2 | sort | uniq > {}".format(out_reads, hitList), shell=True)
+        
+        # filter original BAM file against keep list
+        tools.picard.FilterSamReadsTool().execute(inBam, exclude=False, readList=hitList, outBam=outBam, JVMmemory=JVMmemory)
+
+def parser_filter_kaiju_bam(parser=argparse.ArgumentParser()):
+    parser.add_argument("inBam", help="Input reads")
+    parser.add_argument("refDbFaa", help="Database of taxa we keep")
+    parser.add_argument("outBam", help="Output reads, filtered to refDb")
+    parser.add_argument(
+        '--JVMmemory',
+        default=tools.picard.FilterSamReadsTool.jvmMemDefault,
+        help='JVM virtual memory size (default: %(default)s)'
+    )
+    util.cmd.common_args(parser, (('threads', None), ('loglevel', None), ('version', None), ('tmp_dir', None)))
+    util.cmd.attach_main(parser, filter_kaiju_bam, split_args=True)
+    return parser
+
+
+__commands__.append(('filter_kaiju_bam', parser_filter_kaiju_bam))
 
 
 # ==============================
