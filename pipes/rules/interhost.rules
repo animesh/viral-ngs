@@ -47,7 +47,7 @@ rule ref_guided_consensus:
         UGER              = config.get('UGER_queues', {}).get('short', '-l h_rt=04:00:00'),
         logid             = "{sample}",
         novoalign_options = config.get("ref_guided_consensus_novoalign_params", "-r Random -l 30 -g 40 -x 20 -t 502"),
-        min_coverage      = "3"
+        min_coverage      = "2"
     run:
         makedirs(expand("{dir}/{subdir}",
             dir=[config["data_dir"]],

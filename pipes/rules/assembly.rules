@@ -174,7 +174,7 @@ rule refine_assembly_1:
         UGER              = config.get('UGER_queues', {}).get('short', '-l h_rt=04:00:00'),
         logid             = "{sample}",
         novoalign_options = config.get("refine_assembly_1_novoalign_params", "-r Random -l 30 -g 40 -x 20 -t 502"),
-        min_coverage      = "2"
+        min_coverage      = "1"
     shell:  "{config[docker_cmd]} assembly.py refine_assembly {input} {output[0]} --outVcf {output[1]} --min_coverage {params.min_coverage} --novo_params '{params.novoalign_options}' --threads {resources.threads}"
 
 rule refine_assembly_2:
@@ -200,7 +200,7 @@ rule refine_assembly_2:
         UGER              = config.get('UGER_queues', {}).get('short', '-l h_rt=04:00:00'),
         logid             = "{sample}",
         novoalign_options = config.get("refine_assembly_2_novoalign_params", "-r Random -l 40 -g 40 -x 20 -t 100"),
-        min_coverage      = "3"
+        min_coverage      = "2"
     shell:  
         "{config[docker_cmd]} assembly.py refine_assembly {input} {output[0]} --outVcf {output[1]} --min_coverage {params.min_coverage} --novo_params '{params.novoalign_options}' --threads {resources.threads}"
 
