@@ -15,6 +15,7 @@ import tools
 from Bio import SeqIO
 
 import util.file
+import util.misc
 
 TOOL_VERSION = '1.6.3_yesimon'
 
@@ -50,15 +51,17 @@ class Kaiju(tools.Tool):
         return TOOL_VERSION
 
     def build(self, db_prefix, protein_fastas, threads=None, options=None, option_string=None,
-              tax_db=None, translate_accessions=False):
+              tax_db=None, translate_accessions=False, default_tax_id=None):
         '''Create a kaiju database.
 
         Args:
           db_prefix: Kaiju database prefix (file path not containing extension) to create.
           protein_fastas: List of input fasta files to process.
           tax_db: Contains accession2taxid used if translate_accessions is True.
+             If translate_accessions is True and tax_db is not specified, default_tax_id must be given.
           translate_accessions: If fasta IDs are accessions, translate to
             <accession>_<taxid> format kaiju expects.
+          default_tax_id: default taxon id to use for accessions not assigned one in tax_db
         '''
         assert len(protein_fastas), ('Kaiju requires input files to create a database.')
         options = options or {}
@@ -73,11 +76,15 @@ class Kaiju(tools.Tool):
             if translate_accessions:
                 with temp_file as input_fasta:
                     with open(db_fasta_fn, 'w') as db_fasta:
-                        prot2taxid_fn = os.path.join(tax_db, 'accession2taxid', 'prot.accession2taxid')
-                        prot2taxid = read_a2t(prot2taxid_fn)
+                        prot2taxid = {}
+                        if not tax_db:
+                            util.misc.chk(default_tax_id is not None, 'Neither tax_db nor default_tax_id given')
+                        else:
+                            prot2taxid_fn = os.path.join(tax_db, 'accession2taxid', 'prot.accession2taxid')
+                            prot2taxid = read_a2t(prot2taxid_fn)
                         for record in SeqIO.parse(input_fasta, 'fasta'):
                             accession = record.id.split('.', 1)[0]
-                            taxid = prot2taxid.get(accession)
+                            taxid = prot2taxid.get(accession, default_tax_id)
                             if taxid is not None:
                                 new_id = '_'.join([record.id, str(taxid)])
                                 record.id = new_id
@@ -85,7 +92,7 @@ class Kaiju(tools.Tool):
                             SeqIO.write(record, db_fasta, 'fasta')
                     option_string = db_fasta_fn
             else:
-                option_string = temp_
+                option_string = temp_file
 
             self.execute('mkbwt', options=options, option_string=option_string)
             self.execute('mkfmi', option_string=db_prefix)
