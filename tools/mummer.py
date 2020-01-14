@@ -236,24 +236,26 @@ class MummerTool(tools.Tool):
         '''
 
         # create tiling path with nucmer/promer and show-tiling
-        if aligner=='nucmer':
-            aligner = self.nucmer
-        elif aligner=='promer':
-            aligner = self.promer
+        if aligner == 'nucmer':
+            aligner_impl = self.nucmer
+            #aligner = self.promer
+        elif aligner == 'promer':
+            aligner_impl = self.promer
             raise NotImplementedError('we have not implemented a show-aligns file reader that works for protein alignments')
         else:
             raise NameError()
         delta_1 = util.file.mkstempfname('.delta')
         delta_2 = util.file.mkstempfname('.delta')
         tiling = util.file.mkstempfname('.tiling')
-        aligner(refFasta, contigsFasta, delta_1, extend=extend, breaklen=breaklen,
+        aligner_impl(refFasta, contigsFasta, delta_1, extend=extend, breaklen=breaklen,
             maxgap=maxgap, minmatch=minmatch, mincluster=mincluster)
         self.delta_filter(delta_1, delta_2)
-        self.show_tiling(delta_2, tiling, tab_delim=True,
-            min_pct_id=min_pct_id,
-            min_contig_len=min_contig_len,
-            min_contig_coverage_diff=min_contig_coverage_diff,
-            min_pct_contig_aligned=min_pct_contig_aligned)
+        if False:
+            self.show_tiling(delta_2, tiling, tab_delim=True,
+                min_pct_id=min_pct_id,
+                min_contig_len=min_contig_len,
+                min_contig_coverage_diff=min_contig_coverage_diff,
+                min_pct_contig_aligned=min_pct_contig_aligned)
 
         util.file.unlink_tempfile(delta_1)
 
@@ -297,7 +299,7 @@ class MummerTool(tools.Tool):
                         alt_seq[0], alt_seq[1], alt_seq[2],
                         s
                     ))
-        util.file.unlink_tempfile(tiling)
+            util.file.unlink_tempfile(tiling)
 
 
         # load all contig-to-ref alignments into AlignsReaders
