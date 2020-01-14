@@ -250,18 +250,19 @@ class MummerTool(tools.Tool):
         aligner_impl(refFasta, contigsFasta, delta_1, extend=extend, breaklen=breaklen,
             maxgap=maxgap, minmatch=minmatch, mincluster=mincluster)
         self.delta_filter(delta_1, delta_2)
-        if False:
-            self.show_tiling(delta_2, tiling, tab_delim=True,
-                min_pct_id=min_pct_id,
-                min_contig_len=min_contig_len,
-                min_contig_coverage_diff=min_contig_coverage_diff,
-                min_pct_contig_aligned=min_pct_contig_aligned)
+
+        self.show_tiling(delta_2, tiling, tab_delim=True,
+            min_pct_id=min_pct_id,
+            min_contig_len=min_contig_len,
+            min_contig_coverage_diff=min_contig_coverage_diff,
+            min_pct_contig_aligned=min_pct_contig_aligned)
 
         util.file.unlink_tempfile(delta_1)
 
         # load intervals into a FeatureSorter
         fs = util.misc.FeatureSorter()
-        
+        fs2 = util.misc.FeatureSorter()
+
         for row in self._show_coords(delta_fname=delta_2, min_pct_id=min_pct_id,
                                      min_pct_contig_aligned=min_pct_contig_aligned, min_contig_len=min_contig_len):
             c = row['ID_R']
@@ -274,33 +275,32 @@ class MummerTool(tools.Tool):
                 s = '-'
             else:
                 s = '+'
-            fs.add(c, start, stop, strand=s, other=alt_seq)
+            fs2.add(c, start, stop, strand=s, other=alt_seq)
             log.info("mummer alignment %s:%d-%d - %s:%d-%d (%s)" % (
                 c, start, stop,
                 alt_seq[0], alt_seq[1], alt_seq[2],
                 s
             ))
-        if False:
-            with util.file.open_or_gzopen(tiling, 'rU') as inf:
-                for line in inf:
-                    row = line.rstrip('\n\r').split('\t')
-                    c = row[11]
-                    start, stop = (int(row[0]), int(row[1]))
-                    alt_seq = (row[12], int(row[2]), int(row[3]))
-                    if stop<start:
-                        raise ValueError()
-                    if alt_seq[2]<alt_seq[1]:
-                        s = '-'
-                    else:
-                        s = '+'
-                    fs.add(c, start, stop, strand=s, other=alt_seq)
-                    log.info("mummer alignment %s:%d-%d - %s:%d-%d (%s)" % (
-                        c, start, stop,
-                        alt_seq[0], alt_seq[1], alt_seq[2],
-                        s
-                    ))
-            util.file.unlink_tempfile(tiling)
 
+        with util.file.open_or_gzopen(tiling, 'rU') as inf:
+            for line in inf:
+                row = line.rstrip('\n\r').split('\t')
+                c = row[11]
+                start, stop = (int(row[0]), int(row[1]))
+                alt_seq = (row[12], int(row[2]), int(row[3]))
+                if stop<start:
+                    raise ValueError()
+                if alt_seq[2]<alt_seq[1]:
+                    s = '-'
+                else:
+                    s = '+'
+                fs.add(c, start, stop, strand=s, other=alt_seq)
+                log.info("mummer alignment %s:%d-%d - %s:%d-%d (%s)" % (
+                    c, start, stop,
+                    alt_seq[0], alt_seq[1], alt_seq[2],
+                    s
+                ))
+        util.file.unlink_tempfile(tiling)
 
         # load all contig-to-ref alignments into AlignsReaders
         alnReaders = {}
