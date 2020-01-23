@@ -12,7 +12,11 @@ import os
 import os.path
 import random
 import subprocess
+import traceback
 import Bio.SeqIO
+import Bio.Data.IUPACData
+import Bio.Alphabet.IUPAC
+import Bio.Seq
 
 TOOL_NAME = "mummer4"
 tool_version = '4.0.0beta2'
@@ -238,7 +242,7 @@ class MummerTool(tools.Tool):
         # create tiling path with nucmer/promer and show-tiling
         if aligner == 'nucmer':
             aligner_impl = self.nucmer
-            #aligner = self.promer
+            #aligner_impl = self.promer
         elif aligner == 'promer':
             aligner_impl = self.promer
             raise NotImplementedError('we have not implemented a show-aligns file reader that works for protein alignments')
@@ -261,26 +265,27 @@ class MummerTool(tools.Tool):
 
         # load intervals into a FeatureSorter
         fs = util.misc.FeatureSorter()
-        fs2 = util.misc.FeatureSorter()
+        if False:
+            fs2 = util.misc.FeatureSorter()
 
-        for row in self._show_coords(delta_fname=delta_2, min_pct_id=min_pct_id,
-                                     min_pct_contig_aligned=min_pct_contig_aligned, min_contig_len=min_contig_len):
-            c = row['ID_R']
-            start, stop = (int(row['S1']), int(row['E1']))
-            alt_seq = (row['ID_Q'], int(row['S2']), int(row['E2']))
-            if stop<start:
-                raise ValueError()
-            util.misc.chk(row['FROM_R'] == '1')
-            if row['FROM_Q'] == '-1':
-                s = '-'
-            else:
-                s = '+'
-            fs2.add(c, start, stop, strand=s, other=alt_seq)
-            log.info("mummer alignment %s:%d-%d - %s:%d-%d (%s)" % (
-                c, start, stop,
-                alt_seq[0], alt_seq[1], alt_seq[2],
-                s
-            ))
+            for row in self._show_coords(delta_fname=delta_2, min_pct_id=min_pct_id,
+                                         min_pct_contig_aligned=min_pct_contig_aligned, min_contig_len=min_contig_len):
+                c = row['ID_R']
+                start, stop = (int(row['S1']), int(row['E1']))
+                alt_seq = (row['ID_Q'], int(row['S2']), int(row['E2']))
+                if stop<start:
+                    raise ValueError()
+                util.misc.chk(row['FROM_R'] == '1')
+                if row['FROM_Q'] == '-1':
+                    s = '-'
+                else:
+                    s = '+'
+                fs2.add(c, start, stop, strand=s, other=alt_seq)
+                log.info("mummer alignment %s:%d-%d - %s:%d-%d (%s)" % (
+                    c, start, stop,
+                    alt_seq[0], alt_seq[1], alt_seq[2],
+                    s
+                ))
 
         with util.file.open_or_gzopen(tiling, 'rU') as inf:
             for line in inf:
@@ -495,7 +500,6 @@ def contig_chooser(alt_seqs, ref_len, coords_debug=""):
         other_seqs = list(s for s in other_seqs if s!=new_seq)
     return [new_seq] + other_seqs
 
-
 class AmbiguousAlignmentException(Exception):
     pass
 
@@ -507,22 +511,53 @@ class AlignsReader(object):
         self.ref_fasta = ref_fasta
         self.reference_seq = None
         self.alignments = []
+        self.seq_fastas = []
         self.seq_ids = []
-        self._load_align()
+        try:
+            self._load_align()
+        except Exception as e:
+            logging.info("Error in load_align of %s %s: %s", aligns_file, ref_fasta, e)
+            traceback.print_exc()
+            raise
         self._load_fastas()
 
+    def _determine_nucmer_or_promer(self):
+        """Determine if the alignment was done by nucmer or promer"""
+        with open(self.aligns_file, 'rt') as inf:
+            for line in inf:
+                if line.startswith('-- BEGIN alignment [ '):
+                    break
+            next(inf)
+            next(inf)
+            coord, seq = next(inf).strip().split()
+            coord = int(coord)
+            letters = set(seq)
+            if letters <= set('tcga.'):
+                self.nucmer_or_promer = 'nucmer'
+            elif letters <= set(Bio.Data.IUPACData.protein_letters + '.*'):
+                self.nucmer_or_promer = 'promer'
+            else:
+                util.misc.chk(False, 'Could not determine alphabet for {}: {}'.format(self.aligns_file, letters))
+
+
     def _load_align(self):
+        log.debug('Reading aligns from %s', self.aligns_file)
+        self._determine_nucmer_or_promer()
+        log.debug('DETERMINED NUCMER OR PROMER: %s', self.nucmer_or_promer)
         with open(self.aligns_file, 'rt') as inf:
             # read ref_fasta, query_fasta from header
-            header = inf.readline().strip().split()
-            assert len(header) == 2
+            self.seq_fastas = inf.readline().strip().split()
+            assert len(self.seq_fastas) == 2
             if self.ref_fasta is None:
-                self.ref_fasta = header[0]
+                self.ref_fasta = self.seq_fastas[0]
+            else:
+                self.seq_fastas[0] = self.ref_fasta
 
             # iterate row by row
             mode = 'start'
             coords = None
             seqs = None
+            seqs_orig = None
             for line in inf:
                 line = line.rstrip()
                 if not line:
@@ -537,12 +572,15 @@ class AlignsReader(object):
                         mode = 'between'
                         self.seq_ids = line[22:].split(' and ')
                         assert len(self.seq_ids) == 2
+                        seqs_orig = [str(Bio.SeqIO.index(seq_fasta, 'fasta')[seq_id].seq)
+                                     for seq_fasta, seq_id in zip(self.seq_fastas, self.seq_ids)]
+                        # log.debug('CONSTRUCTED seqs_orig: %s', seqs_orig)
                     elif line.startswith('-- BEGIN alignment [ '):
                         assert mode == 'between'
                         mode = 'align'
                         coords = list(x.split() for x in line[21:-2].split(' | '))
                         assert len(coords) == 2 and coords[0][2] == coords[1][2] == '-'
-                        assert coords[0][0] == '+1', "error with line: %s" % line
+                        assert self.nucmer_or_promer == 'promer' or coords[0][0] == '+1', "error with line: %s" % line
                         seqs = [[], []]
                         align_lines = 0
                     elif line.startswith('--   END alignment [ '):
@@ -553,9 +591,64 @@ class AlignsReader(object):
                         assert len(seqs[0]) == len(seqs[1])
                         seqs = list(''.join(x) for x in seqs)
                         assert len(seqs[0]) == len(seqs[1])
+
+                        #log.debug('GOT SEQS: %s seqs_orig: %s', seqs, seqs_orig)
+                        if self.nucmer_or_promer == 'promer':
+                            # convert the protein sequence to DNA
+                            seqs_dna = []
+                            log.debug('len(coords)=%d len(seqs)=%d coords=%s', len(coords), len(seqs), coords)
+                            dna_seqs = []
+                            for frame_beg_dash_end, seq, seq_orig in zip(coords, seqs, seqs_orig):
+                                log.debug('frame_beg_dash_end=%s seq=%s seq_orig=%s', frame_beg_dash_end, seq, seq_orig)
+                                frame, beg, dash, end = frame_beg_dash_end
+                                frame, beg, end = map(int, (frame, beg, end))
+                                step = +3 if frame > 0 else -3
+                                cur_pos = beg-1 #if frame > 0 else 
+                                dna_seq_so_far = ''
+                                for c in seq:
+                                    if c == '.':
+                                        codon = '...'
+                                    else:
+                                        if frame > 0:
+                                            codon = seq_orig[cur_pos:cur_pos+3]
+                                        else:
+                                            codon = seq_orig[cur_pos] + seq_orig[cur_pos-1] + seq_orig[cur_pos-2]
+                                            codon = str(Bio.Seq.Seq(codon, Bio.Alphabet.IUPAC.unambiguous_dna).complement())
+                                    # log.debug('cur_pos=%d codon=%s c=%s transl=%s', cur_pos, codon, c, 
+                                    #           '...' if codon == '...' else \
+                                    #           str(Bio.Seq.Seq(codon, Bio.Alphabet.IUPAC.unambiguous_dna).translate()))
+                                    assert (c == '.' and codon == '...') or \
+                                        str(Bio.Seq.Seq(codon, Bio.Alphabet.IUPAC.unambiguous_dna).translate()) == c
+                                    dna_seq_so_far += codon
+                                    if c != '.':
+                                        cur_pos += step
+                                # end: for c in seq
+                                dna_seqs.append(dna_seq_so_far)
+                                #log.info('APPENDED DNA SEQ: %s', dna_seqs)
+                            # end: for frame_beg_dash_end, seq, seq_orig in zip(coords, seqs, seqs_orig)
+                            seqs = dna_seqs
+
+                            if int(coords[0][0]) < 0:
+                                for which in (0, 1):
+                                    seqs[which] = str(Bio.Seq.Seq(seqs[which]).reverse_complement())
+                                    c = coords[which]
+                                    c[0] = '+1' if int(c[0]) < 0 else '-1'
+                                    c[1], c[3] = c[3], c[1]
+                            else:
+                                for which in (0, 1):
+                                    c = coords[which]
+                                    c[0] = '+1' if int(c[0]) > 0 else '-1'
+
+                        # end: if self.nucmer_or_promer == 'promer'
+
+                        # log.debug('SAVING ALIGNMENT: %s COORDS: %s',
+                        #           ([coords[0][0], int(coords[0][1]), int(coords[0][3]),
+                        #             coords[1][0], int(coords[1][1]), int(coords[1][3]),
+                        #             seqs[0].replace('.', '-'), seqs[1].replace('.', '-')]),
+                        #           new_coords)
                         self.alignments.append([coords[0][0], int(coords[0][1]), int(coords[0][3]),
                                coords[1][0], int(coords[1][1]), int(coords[1][3]),
-                               seqs[0], seqs[1]])
+                               seqs[0].replace('.', '-'), seqs[1].replace('.', '-')])
                         coords = None
                         seqs = None
                     else:
@@ -563,13 +656,14 @@ class AlignsReader(object):
                 else:
                     # read in one line of an alignment
                     assert mode == 'align', "file format: line '%s' before alignment begins" % line
-                    seq_str = line.split()[1].upper().replace('.','-')
+                    seq_str = line.split()[1].upper()  #.replace('.', '-')
                     seqs[align_lines % 2].append(seq_str)
                     align_lines += 1
 
     def _load_fastas(self):
         assert self.ref_fasta and self.seq_ids
         self.reference_seq = Bio.SeqIO.index(self.ref_fasta, 'fasta')[self.seq_ids[0]]
+        #self.query_seq = Bio.SeqIO.index(self.ref_fasta, 'fasta')[self.seq_ids[0]]
 
     def get_alignments(self):
         for a in self.alignments:
