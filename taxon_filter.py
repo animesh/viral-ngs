@@ -174,6 +174,7 @@ def filter_lastal_bam(
     min_length_for_initial_matches=5,
     max_length_for_initial_matches=50,
     max_initial_matches_per_position=100,
+    protein_db_fasta=None,
     error_on_reads_in_neg_control=False,
     neg_control_prefixes=None, #set below: "neg","water","NTC"
     negative_control_reads_threshold=0,
@@ -195,6 +196,7 @@ def filter_lastal_bam(
 
             # look for lastal hits in BAM and write to temp file
             with open(hitList, 'wt') as outf:
+                reads_written = set()
                 for read_id in tools.last.Lastal().get_hits(
                         inBam, db,
                         max_gapless_alignments_per_position,
@@ -205,6 +207,16 @@ def filter_lastal_bam(
                     ):
                     number_of_hits+=1
                     outf.write(read_id + '\n')
+                    reads_written.add(read_id)
+                if protein_db_fasta:
+                    with util.file.tempfname(suffix='kaijuHitList.txt') as hitListKaiju:
+                        _filter_kaiju_bam(inBam=inBam, refDbFaa=protein_db_fasta,
+                                          hitList=hitListKaiju, JVMmemory=JVMmemory, threads=threads)
+                        with open(hitListKaiju) as kaiju_f:
+                            for line in kaiju_f:
+                                line = line.strip()
+                                if line and not line in reads_written:
+                                    outf.write(line)
 
             if error_on_reads_in_neg_control:
                 sample_name=os.path.basename(inBam)
@@ -214,7 +226,7 @@ def filter_lastal_bam(
                         raise QCError("The sample '{}' appears to be a negative control, but it contains {} reads after filtering to desired taxa.".format(sample_name,number_of_hits))
 
             # filter original BAM file against keep list
-            tools.picard.FilterSamReadsTool().execute(inBam, False, hitList, outBam, JVMmemory=JVMmemory)
+            tools.picard.FilterSamReadsTool().execute(inBam, exclude=False, readList=hitList, outBam=outBam, JVMmemory=JVMmemory)
 
 
 def parser_filter_lastal_bam(parser=argparse.ArgumentParser()):
@@ -249,6 +261,8 @@ def parser_filter_lastal_bam(parser=argparse.ArgumentParser()):
         type=int,
         default=100
     )
+    parser.add_argument('--proteinDbFasta', dest='proteinn_db_fasta',
+                        help='protein sequences in taxon')
     parser.add_argument(
         '--errorOnReadsInNegControl',
         dest="error_on_reads_in_neg_control",
@@ -286,10 +300,10 @@ __commands__.append(('filter_lastal_bam', parser_filter_lastal_bam))
 # =======================
 
 
-def filter_kaiju_bam(
+def _filter_kaiju_bam(
     inBam,
     refDbFaa,
-    outBam,
+    hitList,
     JVMmemory=None, threads=None
 ):
     ''' Restrict input reads to those that align to the given
@@ -317,11 +331,23 @@ def filter_kaiju_bam(
         out_reads = join(tmp_db_dir, 'reads.fa.gz')
 
         kaiju_tool.classify(db=db_prefix + '.fmi', tax_db=tax_db_dir, in_bam=inBam, output_reads=out_reads)
-        hitList = join(tmp_db_dir, 'read_names.txt')
         #with open_or_gzopen(out_reads, 'rt') as out_reads_f, open(hitList, 'wt') as hitList_f:
         #    for line in out_reads_f:
                 
         subprocess.check_call("zgrep -e '10239$' {} | cut -f 2 | sort | uniq > {}".format(out_reads, hitList), shell=True)
+
+def filter_kaiju_bam(
+    inBam,
+    refDbFaa,
+    outBam,
+    JVMmemory=None, threads=None
+):
+    ''' Restrict input reads to those that align to the given
+        reference database using kaiju.
+    '''
+
+    with util.file.tempfname(suffix='kaijuHitList.txt') as hitList:
+        _filter_kaiju_bam(inBam=inBam, refDbFaa=refDbFaa, hitList=hitList, JVMmemory=JVMmemory, threads=threads)
         
         # filter original BAM file against keep list
         tools.picard.FilterSamReadsTool().execute(inBam, exclude=False, readList=hitList, outBam=outBam, JVMmemory=JVMmemory)

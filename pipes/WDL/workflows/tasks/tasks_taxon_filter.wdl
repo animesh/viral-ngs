@@ -85,6 +85,7 @@ task deplete_taxa {
 task filter_to_taxon {
   File     reads_unmapped_bam
   File     lastal_db_fasta
+  File?    protein_db_fasta
   Boolean? error_on_reads_in_neg_control = false
   Int? negative_control_reads_threshold = 0
   String? neg_control_prefixes_space_separated = "neg water NTC"
@@ -113,6 +114,7 @@ task filter_to_taxon {
       ${lastal_db_fasta} \
       ${bam_basename}.taxfilt.bam \
       $ERROR_ON_NEG_CONTROL_ARGS \
+      ${'--proteinDbFasta=' + protein_db_fasta} \
       --JVMmemory="$mem_in_mb"m \
       --loglevel=DEBUG
 
