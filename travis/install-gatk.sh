@@ -3,7 +3,7 @@ set -e -o pipefail
 
 GATK_VERSION=3.8
 GATK_BUILD=1-0-gf15c1c3ef
-GATK_URL="https://software.broadinstitute.org/gatk/download/auth?package=GATK-archive&version=${GATK_VERSION}-${GATK_BUILD}"
+GATK_URL="https://console.cloud.google.com/storage/browser/_details/gatk-software/package-archive/gatk/GenomeAnalysisTK-${GATK_VERSION}-${GATK_BUILD}.tar.bz2
 GATK_TAR=GenomeAnalysisTK-${GATK_VERSION}.tar
 GATK_JAR=${CACHE_DIR}/GenomeAnalysisTK.jar
 GATK_JAR_MD5=186aee868bb7cffc18007966ace8d053
@@ -20,7 +20,8 @@ if [ -f "${GATK_JAR}" ]; then
 else
   echo "Fetching GATK bundle for Travis"
   pwd
-  wget --quiet "${GATK_URL}" -O ${GATK_TAR}
+  wget --quiet "${GATK_URL}" -O ${GATK_TAR}.bz2
+  bunzip2 ${GATK_TAR}.bz2
 
   # It appears that GATK tarball is produced on OS X leading to warnings
   TAR_OPTS=
