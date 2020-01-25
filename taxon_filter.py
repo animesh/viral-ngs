@@ -261,7 +261,7 @@ def parser_filter_lastal_bam(parser=argparse.ArgumentParser()):
         type=int,
         default=100
     )
-    parser.add_argument('--proteinDbFasta', dest='proteinn_db_fasta',
+    parser.add_argument('--proteinDbFasta', dest='protein_db_fasta',
                         help='protein sequences in taxon')
     parser.add_argument(
         '--errorOnReadsInNegControl',
