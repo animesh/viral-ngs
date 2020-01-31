@@ -117,7 +117,8 @@ class DxTool(tools.Tool):
                                                             project_id=self.VIRAL_NGS_DX_CI_PROJECT))
         util.misc.chk('dxWDL' in executable_descr['tags'])
         util.misc.chk(executable_descr['createdBy'] == {'user': 'user-sabeti_ci'})
-        util.misc.chk(executable_descr['folder'].startswith('/build/quay.io/broadinstitute/viral-ngs'))
+        util.misc.chk(executable_descr['folder'].startswith('/build/quay.io/broadinstitute/viral-ngs'),
+                      'do not know how to infer docker image for {}'.format(executable_descr['folder']))
 
         exe_folder_parts = executable_descr['folder'].split('/')
         docker_img = '/'.join(exe_folder_parts[2:5]) + ':' + exe_folder_parts[5]
