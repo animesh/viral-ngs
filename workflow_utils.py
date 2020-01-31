@@ -1390,10 +1390,12 @@ def submit_analysis_wdl(workflow_name, inputs,
 def _submit_prepared_analysis(analysis_dir,
                               cromwell_server_url='http://localhost:8000',
                               backend='Local',
-                              processing_stats=collections.Counter(),
+                              processing_stats=None,
                               copy_to=None):
     """Submit prepared analysis.
     """
+    if processing_stats is None:
+        processing_stats = collections.Counter()
     cromwell_tool = tools.cromwell.CromwellTool()
     cromwell_server = CromwellServer(host=cromwell_server_url)
 
