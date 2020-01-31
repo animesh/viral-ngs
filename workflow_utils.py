@@ -1692,8 +1692,8 @@ __commands__.append(('submit_analyses_crogit', parser_submit_analyses_crogit))
 
 def _prepare_analysis_crogit_do(inputs,
                                 analysis_dir,
-                                analysis_labels,
-                                git_annex_tool, copy_to=None):
+                                analysis_labels = None,
+                                git_annex_tool = None, copy_to=None):
     """Prepare a WDL analysis for submission.
 
     Inputs to the analysis.
@@ -1706,6 +1706,9 @@ def _prepare_analysis_crogit_do(inputs,
         analysis_labels: json file specifying any analysis labels
 
     """
+    analysis_labels = analysis_labels or {}
+    if git_annex_tool is None:
+        git_annex_tool = tools.git_annex.GitAnnexTool()
     analysis_dir = os.path.abspath(analysis_dir)
     inputs = copy.copy(inputs)
     workflow_name = inputs['_workflow_name']
@@ -1749,16 +1752,16 @@ def _prepare_analysis_crogit_do(inputs,
     #_run('sed -i -- "s|{}|{}|g" {}/*.wdl'.format('viral-ngs_version_unknown',
     #                                             docker_img_no_hash.split(':')[1], analysis_dir))
 
-    analysis_labels = dict(
+    analysis_labels_full = dict(
         input_sources,
         docker_img=docker_img,
         docker_img_hash=docker_img_hash,
         analysis_id=analysis_id,
         analysis_dir=os.path.relpath(analysis_dir),
         submitter=getpass.getuser())
-    analysis_labels.update(dict(analysis_labels or {}))
+    analysis_labels_full.update(dict(analysis_labels or {}))
     _write_json(os.path.join(analysis_dir, 'analysis_labels.json'),
-                **_normalize_cromwell_labels(analysis_labels))
+                **_normalize_cromwell_labels(analysis_labels_full))
 
     # add cromwell labels: dx project, the docker tag we ran on, etc.
 
