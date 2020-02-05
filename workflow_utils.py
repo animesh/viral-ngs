@@ -663,7 +663,7 @@ def _determine_dx_analysis_docker_img(dnanexus_tool, mdata):
 
 # ** import_dx_analysis impl
 
-def _import_dx_analysis(dx_analysis_id, analysis_dir_pfx, git_annex_tool, dnanexus_tool):
+def _import_dx_analysis(dx_analysis_id, analysis_dir_pfx, defaults_from_analysis_dir, git_annex_tool, dnanexus_tool):
     """Import a DNAnexus analysis into git, in our analysis dir format."""
 
     analysis_dir = analysis_dir_pfx + dx_analysis_id
@@ -704,9 +704,18 @@ def _import_dx_analysis(dx_analysis_id, analysis_dir_pfx, git_annex_tool, dnanex
     mdata['labels'] = _ord_dict(('platform', 'dnanexus'),
                                 ('analysis_dir', analysis_dir),
                                 ('analysis_id', dx_analysis_id))
-    #mdata['workflowName'] = mdata['executableName']
+    mdata['workflowName'] = mdata['executableName'].split()[0]
 
-    docker_img = dnanexus_tool.determine_viral_ngs_dx_analysis_docker_img(mdata)
+    try:
+        docker_img = dnanexus_tool.determine_viral_ngs_dx_analysis_docker_img(mdata)
+    except Exception as e:
+        if not defaults_from_analysis_dir:
+            raise
+        else:
+            default_docker_img = _json_loadf(os.path.join(defaults_from_analysis_dir, 'inputs-git-links.json'))['_docker_img']
+            _log.warning('Could not determine docker image for {}, using default {}: {}'.format(dx_analysis_id, default_docker_img,
+                                                                                                e))
+            docker_img = default_docker_img
     docker_tool = tools.docker.DockerTool()
     mdata['labels']['docker_img'] = docker_img
     mdata['labels']['docker_img_hash'] = docker_tool.add_image_hash(docker_img)
@@ -771,7 +780,7 @@ def _import_dx_analysis(dx_analysis_id, analysis_dir_pfx, git_annex_tool, dnanex
 #    _write_json(mdata_rel_fname, **mdata_rel)
 #    _write_json(os.path.join(analysis_dir, 'metadata.json'), **mdata)
 
-def _import_dx_analyses_orig(dx_analysis_ids, analysis_dir_pfx):
+def _import_dx_analyses_orig(dx_analysis_ids, analysis_dir_pfx, defaults_from_analysis_dir):
     """Import one or more DNAnexus analyses into git, in our analysis dir format."""
     git_annex_tool = tools.git_annex.GitAnnexTool()
     dnanexus_tool = tools.dnanexus.DxTool()
@@ -779,7 +788,8 @@ def _import_dx_analyses_orig(dx_analysis_ids, analysis_dir_pfx):
     with git_annex_tool.batching() as git_annex_tool:
         for dx_analysis_id in dx_analysis_ids:
             try:
-                out.append(_import_dx_analysis(dx_analysis_id, analysis_dir_pfx, git_annex_tool, dnanexus_tool))
+                out.append(_import_dx_analysis(dx_analysis_id, analysis_dir_pfx, defaults_from_analysis_dir,
+                                               git_annex_tool, dnanexus_tool))
             except Exception as e:
                 _log.warning('Could not import %s: %s %s', dx_analysis_id, e,
                              ''.join(traceback.format_exception(type(e),
@@ -797,16 +807,18 @@ def _import_dx_analyses_orig(dx_analysis_ids, analysis_dir_pfx):
         run_inputs['_workflow_name'] = mdata_rel['workflowName']
         _prepare_analysis_crogit_do(inputs=run_inputs,
                                     analysis_dir=mdata_rel['labels']['analysis_dir'],
-                                    analysis_labels=mdata_rel['labels'], git_annex_tool=git_annex_tool)
+                                    analysis_labels=mdata_rel['labels'],
+                                    defaults_from_analysis_dir=defaults_from_analysis_dir,
+                                    git_annex_tool=git_annex_tool)
 
 
-def import_dx_analyses(dx_analysis_ids, analysis_dir_pfx):
+def import_dx_analyses(dx_analysis_ids, analysis_dir_pfx, defaults_from_analysis_dir):
     """Import one or more DNAnexus analyses into git, in our analysis dir format."""
     git_annex_tool = tools.git_annex.GitAnnexTool()
     succ = False
     with git_annex_tool._in_tmp_worktree() as branch:
         try:
-            _import_dx_analyses_orig(dx_analysis_ids, analysis_dir_pfx)
+            _import_dx_analyses_orig(dx_analysis_ids, analysis_dir_pfx, defaults_from_analysis_dir)
             git_annex_tool.add_cwd()
             git_annex_tool.execute_git(['commit', '.', '-m', 'temp_commit'])
             _log.info('COMMITTED IMPORT %s', dx_analysis_ids)
@@ -818,27 +830,31 @@ def parser_import_dx_analyses(parser=argparse.ArgumentParser(fromfile_prefix_cha
     parser.add_argument('dx_analysis_ids', metavar='DX_ANALYSIS_ID', nargs='+', help='dnanexus analysis id(s)')
     parser.add_argument('--analysisDirPfx', dest='analysis_dir_pfx', default='pipelines/dxan-',
                         help='analysis dir prefix; analysis id will be added to it.')
+    parser.add_argument('--defaultsFromAnalysisDir', dest='defaults_from_analysis_dir',
+                        help='if cannot determine docker image use this one')
     util.cmd.attach_main(parser, import_dx_analyses, split_args=True)
     return parser
 
 __commands__.append(('import_dx_analyses', parser_import_dx_analyses))
 
 
-def import_one_dx_analysis(dx_analysis_id, analysis_dir_pfx):
+def import_one_dx_analysis(dx_analysis_id, analysis_dir_pfx, defaults_from_analysis_dir):
     """Import one or more DNAnexus analyses into git, in our analysis dir format."""
-    _import_dx_analyses_orig([dx_analysis_id], analysis_dir_pfx)
+    _import_dx_analyses_orig([dx_analysis_id], analysis_dir_pfx, defaults_from_analysis_dir)
 
 def parser_import_one_dx_analysis(parser=argparse.ArgumentParser(fromfile_prefix_chars='@')):
     parser.add_argument('dx_analysis_id', metavar='DX_ANALYSIS_ID', help='dnanexus analysis id')
     parser.add_argument('--analysisDirPfx', dest='analysis_dir_pfx', default='pipelines/dxan-',
                         help='analysis dir prefix; analysis id will be added to it.')
+    parser.add_argument('--defaultsFromAnalysisDir', dest='defaults_from_analysis_dir',
+                        help='if cannot determine docker image use this one')
     util.cmd.common_args(parser, (('loglevel', None), ('version', None), ('tmp_dir', None)))
     util.cmd.attach_main(parser, import_one_dx_analysis, split_args=True)
     return parser
 
 __commands__.append(('import_one_dx_analysis', parser_import_one_dx_analysis))
 
-def _import_dx_analysis_and_commit(dx_analysis_id, analysis_dir_pfx, script, temp_worktree_dir):
+def _import_dx_analysis_and_commit(dx_analysis_id, analysis_dir_pfx, defaults_from_analysis_dir, script, temp_worktree_dir):
     #util.file.mkdir_p(os.path.join(temp_worktree_dir, 'tmp'))
     log_fname = os.path.join(temp_worktree_dir, analysis_dir_pfx + dx_analysis_id,
                              'import_dx.log')
@@ -846,6 +862,7 @@ def _import_dx_analysis_and_commit(dx_analysis_id, analysis_dir_pfx, script, tem
     try:
         with open(log_fname + '.out.txt', 'wt') as _out_stdout, open(log_fname + '.err.txt', 'wt') as _out_stderr:
             _run(script, 'import_one_dx_analysis', '--analysisDirPfx', analysis_dir_pfx,
+                 '--defaultsFromAnalysisDir', defaults_from_analysis_dir,
                  dx_analysis_id, cwd=temp_worktree_dir, stdout=_out_stdout, stderr=_out_stderr)
     finally:
         _run('git', 'annex', 'add', '--include-dotfiles', '.', cwd=temp_worktree_dir)
@@ -855,7 +872,7 @@ def _set_up_worktree(dx_analysis_id, exit_stack, git_annex_tool, worktree_group_
     return (dx_analysis_id,) + exit_stack.enter_context(git_annex_tool._in_tmp_worktree(worktree_group_id=worktree_group_id,
                                                                                         chdir=False))
 
-def import_mult_dx_analyses(dx_analysis_ids, analysis_dir_pfx, set_tmp_dir):
+def import_mult_dx_analyses(dx_analysis_ids, analysis_dir_pfx, defaults_from_analysis_dir, set_tmp_dir):
     """Import one or more DNAnexus analyses into git, in our analysis dir format."""
 
     git_annex_tool = tools.git_annex.GitAnnexTool()
@@ -869,6 +886,7 @@ def import_mult_dx_analyses(dx_analysis_ids, analysis_dir_pfx, set_tmp_dir):
         util.misc.chk(os.path.isabs(script) and os.path.samefile(script, __file__))
         futures = [executor.submit(_import_dx_analysis_and_commit,
                                    dx_analysis_id=dx_analysis_id, analysis_dir_pfx=analysis_dir_pfx,
+                                   defaults_from_analysis_dir=defaults_from_analysis_dir,
                                    script=script, temp_worktree_dir=temp_worktree_dir)
                    for dx_analysis_id, temp_branch, temp_worktree_dir in temps]
         wait_res = concurrent.futures.wait(futures)
@@ -897,6 +915,8 @@ def parser_import_mult_dx_analyses(parser=argparse.ArgumentParser(fromfile_prefi
     parser.add_argument('dx_analysis_ids', nargs='+', metavar='DX_ANALYSIS_ID', help='dnanexus analysis id(s)')
     parser.add_argument('--analysisDirPfx', dest='analysis_dir_pfx', default='pipelines/dxan-',
                         help='analysis dir prefix; analysis id will be added to it.')
+    parser.add_argument('--defaultsFromAnalysisDir', dest='defaults_from_analysis_dir',
+                        help='if cannot determine docker image use this one')
     parser.add_argument('--setTmpDir', dest='set_tmp_dir', help='use this temp dir')
     util.cmd.common_args(parser, (('loglevel', None), ('version', None), ('tmp_dir', None)))
     util.cmd.attach_main(parser, import_mult_dx_analyses, split_args=True)
@@ -1693,6 +1713,7 @@ __commands__.append(('submit_analyses_crogit', parser_submit_analyses_crogit))
 def _prepare_analysis_crogit_do(inputs,
                                 analysis_dir,
                                 analysis_labels = None,
+                                defaults_from_analysis_dir = None,
                                 git_annex_tool = None, copy_to=None):
     """Prepare a WDL analysis for submission.
 
@@ -1736,11 +1757,30 @@ def _prepare_analysis_crogit_do(inputs,
     #workflow_inputs_spec = _get_workflow_inputs_spec(workflow_name, docker_img=docker_img_hash, analysis_dir=analysis_dir)
     workflow_inputs_spec = _json_loadf(os.path.join(analysis_dir, 'input-spec.json'))
     _write_json(os.path.join(analysis_dir, 'inputs-orig.json'), **inputs)
+
     run_inputs = _make_git_links_under_dir(inputs, analysis_dir, git_annex_tool, files_prefix='files/runInputs')
+
+    if defaults_from_analysis_dir:
+        defaults_inputs = _json_loadf(os.path.join(defaults_from_analysis_dir, 'inputs-git-links.json'))
+        for k, spec in workflow_inputs_spec.items():
+            if not spec['optional'] and k not in run_inputs:
+                _log.warning('Required input %s not given, looking in defaults', k)
+                run_inputs[k] = defaults_inputs[k]
+                if _is_git_link(run_inputs[k]):
+                    util.misc.chk(not os.path.isabs(run_inputs[k]['$git_link']))
+                    default_inp_dir = os.path.join(analysis_dir, os.path.dirname(run_inputs[k]['$git_link']))
+                    util.file.mkdir_p(default_inp_dir)
+                    git_annex_tool.copy_annexed_file(os.path.join(defaults_from_analysis_dir, run_inputs[k]['$git_link']),
+                                                     default_inp_dir)
+                _log.debug('Filled in required input %s from defaults: %s', k, run_inputs[k])
+                                                     
 
     input_sources = {k:v for k, v in run_inputs.items() if k.startswith('_input_src.')}
 
     run_inputs = _dict_subset(run_inputs, set(workflow_inputs_spec.keys()) | set(k for k in run_inputs if k.startswith('_')))
+
+    
+
     #_write_json(os.path.join(analysis_dir, 'input-spec.json'), **workflow_inputs_spec)
     _write_json(os.path.join(analysis_dir, 'inputs-git-links.json'), **run_inputs)
 
