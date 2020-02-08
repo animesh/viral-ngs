@@ -2657,7 +2657,7 @@ def show_benchmark_comparisons_summary_html(benchmarks_spec_file='benchmarks_spe
 
             tags.p(txt('{} benchmarks, {} metrics'.format(unified_metrics.shape[0], unified_metrics.shape[1])))
 
-            for variant in benchmarks_spec['benchmark_variants']:
+            for variant in list(benchmarks_spec['benchmark_variants'])+['orig']:
                 sample_names = unified_metrics['labels.sample_name']
                 txt('variant {}: {}'.format(variant, sample_names[variant].nunique() if variant in sample_names else 'unknown'))
                 tags.br()
@@ -2681,11 +2681,29 @@ def show_benchmark_comparisons_summary_html(benchmarks_spec_file='benchmarks_spe
                                                       (unified_metrics['status'].get(variants[1], None) == 'Failed'))))
 
                 tags.br()
+
                 txt('{} succeeded, ' \
                          '{} failed: {}'.format(variants[1], variants[0],
                                                   sum((unified_metrics['status'].get(variants[1], None) == 'Succeeded') &
                                                       (unified_metrics['status'].get(variants[0], None) == 'Failed'))))
                 tags.br()
+
+                txt('{} succeeded, ' \
+                         '{} succeeded: {}'.format(variants[0], variants[1],
+                                                  sum((unified_metrics['status'].get(variants[0], None) == 'Succeeded') &
+                                                      (unified_metrics['status'].get(variants[1], None) == 'Succeeded'))))
+
+                tags.br()
+
+                txt('{} failed, ' \
+                         '{} failed: {}'.format(variants[0], variants[1],
+                                                  sum((unified_metrics['status'].get(variants[0], None) == 'Failed') &
+                                                      (unified_metrics['status'].get(variants[1], None) == 'Failed'))))
+
+                tags.br()
+
+
+
                 tags.br()
 
                 for metric in benchmarks_spec['compare_metrics']:
@@ -4265,14 +4283,17 @@ __commands__.append(('fix_analysis_labels', parser_fix_analysis_labels))
 
 #########################################################################################################################
 
-def add_orig_benchmark_variant(dirnames):
+def add_orig_benchmark_variant(analysis_dirs_roots):
     """Add a benchmark variant corresponding to the original benchmark"""
-    for dirname in dirnames:
-        orig_variant_link = os.path.join(dirname, 'orig')
-        os.symlink('..', orig_variant_link)
+    for analysis_dir in _get_analysis_dirs_under(analysis_dirs_roots):
+        orig_variant_link = os.path.join(analysis_dir, 'benchmark_variants', 'orig')
+        if not os.path.lexists(orig_variant_link):
+            _log.debug('adding orig benchmark variant: %s', orig_variant_link)
+            os.symlink('..', orig_variant_link)
 
 def parser_add_orig_benchmark_variant(parser=argparse.ArgumentParser()):
-    parser.add_argument('dirnames', nargs='+', help='benchmark variant dirs', metavar='FILENAME')
+    parser.add_argument('--analysisDirsRoots', dest='analysis_dirs_roots', nargs='+', required=True,
+                        help='dir roots containing analysis dirs')
     util.cmd.attach_main(parser, add_orig_benchmark_variant, split_args=True)
     return parser
 
