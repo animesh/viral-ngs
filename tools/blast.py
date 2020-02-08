@@ -39,18 +39,18 @@ class BlastnTool(BlastTools):
     """ Tool wrapper for blastn """
     subtool_name = 'blastn'
 
-    def get_hits_pipe(self, inPipe, db, threads=None):
+    def get_hits_pipe(self, inPipe, db, word_size=16, evalue='1e-6', outfmt=6, max_target_seqs=1, blast_opts=(), threads=None):
 
         # run blastn and emit list of read IDs
         threads = util.misc.sanitize_thread_count(threads)
+
         cmd = [self.install_and_get_path(),
-            '-db', db,
-            '-word_size', 16,
-            '-num_threads', threads,
-            '-evalue', '1e-6',
-            '-outfmt', 6,
-            '-max_target_seqs', 1,
-        ]
+        ] + ['-db', db,
+             '-word_size', word_size,
+             '-num_threads', threads,
+             '-evalue', evalue,
+             '-outfmt', outfmt,
+             '-max_target_seqs', max_target_seqs] + list(blast_opts)
         cmd = [str(x) for x in cmd]
         _log.debug('| ' + ' '.join(cmd) + ' |')
         blast_pipe = subprocess.Popen(cmd, stdin=inPipe, stdout=subprocess.PIPE)
@@ -68,15 +68,12 @@ class BlastnTool(BlastTools):
         if blast_pipe.poll():
             raise subprocess.CalledProcessError(blast_pipe.returncode, cmd)
 
-    def get_hits_bam(self, inBam, db, threads=None):
-        return self.get_hits_pipe(
-            tools.samtools.SamtoolsTool().bam2fa_pipe(inBam),
-            db,
-            threads=threads)
+    def get_hits_bam(self, inBam, *args, **kw):
+        return self.get_hits_pipe(tools.samtools.SamtoolsTool().bam2fa_pipe(inBam), *args, **kw)
 
-    def get_hits_fasta(self, inFasta, db, threads=None):
+    def get_hits_fasta(self, inFasta, *args, **kw):
         with open(inFasta, 'rt') as inf:
-            for hit in self.get_hits_pipe(inf, db, threads=threads):
+            for hit in self.get_hits_pipe(inf, *args, **kw):
                 yield hit
 
 
@@ -84,7 +81,7 @@ class MakeblastdbTool(BlastTools):
     """ Tool wrapper for makeblastdb """
     subtool_name = 'makeblastdb'
 
-    def build_database(self, fasta_files, database_prefix_path):
+    def build_database(self, fasta_files, database_prefix_path, makeblastdb_opts=()):
         """ builds a srprism database """
 
         input_fasta = ""
@@ -110,7 +107,7 @@ class MakeblastdbTool(BlastTools):
         else:
             raise IOError("No fasta file provided")
 
-        args = ['-dbtype', 'nucl', '-in', input_fasta, '-out', database_prefix_path]
+        args = ['-dbtype', 'nucl', '-in', input_fasta, '-out', database_prefix_path] + list(makeblastdb_opts or ())
         self.execute(*args)
 
         return database_prefix_path

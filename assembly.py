@@ -20,6 +20,8 @@ import functools
 import operator
 import concurrent.futures
 import csv
+import re
+import collections
 
 from itertools import zip_longest    # pylint: disable=E0611
 
@@ -41,10 +43,14 @@ import tools.mafft
 import tools.mummer
 import tools.muscle
 import tools.gap2seq
+import tools.blast
 
 # third-party
 import Bio.AlignIO
+import Bio.Alphabet
+import Bio.Seq
 import Bio.SeqIO
+import Bio.SeqRecord
 import Bio.Data.IUPACData
 
 log = logging.getLogger(__name__)
@@ -1676,6 +1682,359 @@ def dpdiff(inVcfs, outFile):
 
 #__commands__.append(('dpdiff', parser_dpdiff))
 
+Gap = collections.namedtuple('Gap', # Information one gap in one scaffold segment
+                             ('gap_num',
+                              'flank_seqs',
+                              'flank_begs',
+                              'flank_ends',
+                              'gap_seq',
+                              'gap_beg',
+                              'gap_end',
+                              'gap_seq_len',
+                              'scaffold_segment_id'))
+
+def gaps_iter(scaffold_fasta, min_gap_len, min_flank_len, max_flank_len=None):
+    """Returns an iterator over gaps in segments of DNA sequence.
+
+    Args:
+      scaffold_fasta: fasta file containing segments of a scaffold with possible gaps (stretches of Ns)
+      min_gap_len: ignore gaps shorter than this
+      min_flank_len: require a non-gap sequence of this at least length on each side of the gap
+      max_flank_len: include the non-gap sequence of at most this length as the flanks of the gap (defaults to
+          `min_flank_len` if not specified)
+
+    Yields:
+      for each gap in a segment of `scaffold_fasta` matching the gap criteria, returns a `Gap` named tuple.
+    """
+
+    max_flank_len = max_flank_len or min_flank_len
+
+    #
+    # Construct a regexp for matching a gap.
+    #
+    # A complication is that a gap can have some non-Ns in the middle.
+    #
+
+    def _paren(s):
+        """Return the regexp `s` wrapped in a non-capturing group"""
+        return '(?:' + s + ')'
+
+    def _rep(s, nmin='', nmax='', greedy=True):
+        """Return a regexp for between `nmin` and `nmax` copies of a string matching regexp `s`.
+        If `greedy` is True, the returned regexp matches as much text as possible.
+        """
+        return _paren(_paren(s)+'{'+str(nmin)+','+str(nmax)+'}'+('' if greedy else '?'))
+
+    Ns = _rep('N', nmin=min_gap_len)
+    flank_re = '(' + _rep('[^N]', nmin=min_flank_len, nmax=max_flank_len) + ')'
+    sub_flank_re = _rep('[^N]', nmax=min_flank_len-1, greedy=False)
+    gap_re = '(' + _rep('N+'+sub_flank_re, greedy=False) + Ns + _rep(sub_flank_re+'N+', greedy=False) + ')'
+    flanked_gap_re = flank_re + gap_re + flank_re
+
+    gap_num = 0
+    for scaffold_segment_num, scaffold_segment in enumerate(Bio.SeqIO.parse(scaffold_fasta, 'fasta')):
+        for m in re.finditer(flanked_gap_re, str(scaffold_segment.seq).upper()):
+            yield Gap(gap_num=gap_num, flank_seqs=(m.group(1), m.group(3)), 
+                      flank_begs=(m.start(1), m.start(3)), flank_ends=(m.end(1), m.end(3)),
+                      gap_seq=m.group(2), gap_beg=m.start(2), gap_end=m.end(2),
+                      gap_seq_len=len(m.group(2)),
+                      scaffold_segment_id=scaffold_segment.id)
+            gap_num += 1
+# end:  def gaps_iter(scaffold_fasta, min_gap_len, min_flank_len, max_flank_len=None)
+
+def gap_seqs_from_refs(in_scaffold, in_refs, out_gap_seqs_fasta,
+                       out_gap_seqs_info=None, min_gap_len=10,
+                       min_flank_len=200, max_flank_len=None, threads=None):
+    '''For each gap in an assembly, determine the possible approximate contents of the gap, based on reference
+    sequences from the taxon.  We do this by taking the flanks of each gap, mapping them to the
+    reference sequences, and whenever the two flanks map to a reference sequence, taking the
+    sequence between them as possible contents of the gap.
+
+    Inputs:
+       in_scaffold: the assembly scaffold; a fasta file with possibly gapped sequence(s)
+       in_refs: the known reference sequences from the taxon.  They can be in any order,
+         and need not represent complete genome segments.
+
+    Outputs:
+       out_gap_seqs_fasta: fasta file that gives the possible sequences in gaps, based on the references
+       out_gap_seqs_info: a tsv table that for each sequence record in out_gap_seqs_fasta gives information about
+          the gap filled by that sequence.  The table has two columns: the first gives the FASTA record ID in
+          out_gap_seqs_fasta, and the second gives the ID of the gap filled by that sequence.
+    '''
+
+    Seq = Bio.Seq.Seq
+    SeqRecord = Bio.SeqRecord.SeqRecord
+    IUPAC = Bio.Alphabet.IUPAC
+    DNASeq = functools.partial(Seq, alphabet=IUPAC.ambiguous_dna)
+    out_gap_seqs_info = out_gap_seqs_info or out_gap_seqs_fasta+'.info.tsv'
+
+    with util.file.tmp_dir('_gap_seqs_from_refs') as t_dir, open(out_gap_seqs_info, 'w') as out_gap_seqs_info_file:
+        gap_seqs_info_writer = csv.DictWriter(out_gap_seqs_info_file,
+                                              fieldnames = ('fasta_rec_id', 'gap_num'), delimiter='\t')
+
+        refs_recs = tuple(Bio.SeqIO.parse(in_refs, 'fasta'))
+        refId2seq = {ref_rec.id : str(ref_rec.seq) for ref_rec in refs_recs}
+
+        refs_db_pfx = os.path.join(t_dir, 'refs_blastdb')
+        tools.blast.MakeblastdbTool().build_database(fasta_files=in_refs, database_prefix_path=refs_db_pfx,
+                                                     makeblastdb_opts=['-hash_index', '-parse_seqids'])
+
+        blastn = tools.blast.BlastnTool() # try also tblastx?
+
+        for gap in gaps_iter(in_scaffold, min_gap_len, min_flank_len, max_flank_len):
+            print('GGGGGGGGGGGap=', gap)
+            flanks_hits = []
+            flank_fasta = [os.path.join(t_dir, 'gap_{}_flank_{}.fasta'.format(gap.gap_num, flank_num))
+                           for flank_num in (0,1)]
+            for flank_num in (0,1):
+                Bio.SeqIO.write([SeqRecord(DNASeq(gap.flank_seqs[flank_num]), id='gap_{}_flank_{}'.format(gap.gap_num, flank_num))],
+                                flank_fasta[flank_num], 'fasta')
+                flanks_hits.append(list(blastn.get_hits_fasta(inFasta=flank_fasta[flank_num], db=refs_db_pfx,
+                                                              word_size=4, evalue='1e-6', max_target_seqs=10000,
+                                                              blast_opts=['-task', 'blastn',
+                                                                          '-perc_identity', '60', '-qcov_hsp_perc', '95',
+                                                                          '-max_hsps', '1'])))
+
+            targ2hits = [{}, {}]
+
+            print(flanks_hits[0])
+            for i in range(2):
+                print('i=', i, 'flank_hits[i]=', flanks_hits[i])
+                for alignment_num, alignment in enumerate(flanks_hits[i][0].alignments):
+                    targ2hits[i][alignment.hit_id] = alignment
+
+            targs_both_flanks = sorted(set(targ2hits[0].keys()) & set(targ2hits[1].keys()))
+            targs_left_only = sorted(set(targ2hits[0].keys()) - set(targ2hits[1].keys()))
+            targs_right_only = sorted(set(targ2hits[1].keys()) - set(targ2hits[0].keys()))
+            print('gap: {} targs_both_flanks: {} leftOnly: {} rightOnly: {}'.format(gap.gap_num,
+                                                                                    len(targs_both_flanks),
+                                                                                    len(targs_left_only),
+                                                                                    len(targs_right_only)))
+
+            lens = set()
+            gap_seqs = []
+            for targ in targs_both_flanks:
+                hit_ids = [targ2hits[i][targ].hit_id for i in range(2)]
+                assert hit_ids[0] == hit_ids[1]
+                hsps = [targ2hits[i][targ].hsps[0] for i in range(2)]
+                print(targ,
+                      hsps[0].sbjct_start, hsps[0].sbjct_end, hsps[0].strand,
+                      hsps[1].sbjct_start, hsps[1].sbjct_end, hsps[1].strand,
+                      )
+                assert hsps[0].sbjct_start < hsps[0].sbjct_end < hsps[1].sbjct_start < hsps[1].sbjct_end
+                subj_seq = refId2seq[hit_ids[i].split('|')[1]]
+                for i in range(2):
+                    assert subj_seq[hsps[i].sbjct_start-1:hsps[i].sbjct_end] == str(DNASeq(hsps[i].sbjct).ungap(gap='-'))
+                lens.add(hsps[1].sbjct_end - hsps[0].sbjct_start)
+                gap_seqs.append(SeqRecord(DNASeq(subj_seq[hsps[0].sbjct_start-1:hsps[1].sbjct_end]),
+                                          id='gap_{}_targ_{}'.format(gap.gap_num, hit_ids[0])))
+                gap_seqs.append(SeqRecord(DNASeq(hsps[0].query).ungap(gap='-') + \
+                                          DNASeq(subj_seq[hsps[0].sbjct_end:hsps[1].sbjct_start-1]) + \
+                                          DNASeq(hsps[1].query).ungap(gap='-'),
+                                          id='gap_{}_wflanks_targ_{}'.format(gap.gap_num, hit_ids[0])))
+
+            print('lens: {} - {}'.format(len(lens), ', '.join(map(str, sorted(lens)))))
+            gap_seq_fasta = os.path.join(t_dir, 'gap.{}.fasta'.format(gap.gap_num))
+            Bio.SeqIO.write(gap_seqs, gap_seq_fasta, 'fasta')
+
+            if False:
+                kmer_size = 19
+                gap_seq_fasta_kmers = gap_seq_fasta + '.k{}'.format(kmer_size)
+                kmer_utils.build_kmer_db(seq_files=[gap_seq_fasta], kmer_db=gap_seq_fasta_kmers, kmer_size=kmer_size)
+                gap_relevant_reads = os.path.join(t_dir, 'gap.{}.relevant_reads.bam'.format(gap.gap_num))
+                kmer_utils.filter_reads(kmer_db=gap_seq_fasta_kmers, in_reads=reads_bam, out_reads=gap_relevant_reads,
+                                        read_min_occs=1)
+                print('RELEVANT_READS', tools.samtools.SamtoolsTool().count(gap_relevant_reads))
+                gap_contigs = os.path.join(t_dir, 'gap.{}.contigs.fasta'.format(gap.gap_num))
+                flanks_fasta = os.path.join(t_dir, 'gap.{}.flanks.fasta'.format(gap.gap_num))
+
+                Bio.SeqIO.write([SeqRecord(DNASeq(gap.flank_seqs[flank_num]), id='gap_{}_flank_{}'.format(gap.gap_num, flank_num))
+                                 for flank_num in (0,1)],
+                                flanks_fasta, 'fasta')
+
+                assemble_spades(in_bam=gap_relevant_reads,
+                                clip_db=clip_db,
+                                out_fasta=gap_contigs,
+                                contigs_trusted=flanks_fasta,
+                                adapters='/ndata/lasv/data/00_raw/K1.adapters.fasta')
+
+                cur_scaffold_recs = Bio.SeqIO.parse(cur_scaffold, 'fasta')
+                new_scaffold_recs = []
+                one_seg_fasta = os.path.join(t_dir, 'gap.{}.scafseg.fasta'.format(gap.gap_num))
+                for scaf_rec in cur_scaffold_recs:
+                    if scaf_rec.id == gap.scaffold_segment_id:
+                        Bio.SeqIO.write([scaf_rec], one_seg_fasta, 'fasta-2line')
+                        break                    
+
+                order_and_orient(inFasta=gap_contigs, inReference=one_seg_fasta,
+                                 outFasta=gap_contigs+'.bef_refine.fasta')
+
+                refine_assembly(inFasta=gap_contigs, inBam=reads_bam, outFasta=gap_contigs+'.refine1.fasta',
+                                novo_params="-r Random -l 30 -g 40 -x 20 -t 502",
+                                min_coverage=2, major_cutoff=0.5)
+                refine_assembly(inFasta=gap_contigs+'.refine1.fasta', inBam=reads_bam, outFasta=gap_contigs+'.refine2.fasta',
+                                novo_params="-r Random -l 40 -g 40 -x 20 -t 100",
+                                min_coverage=3, major_cutoff=0.5)
+
+                cur_scaffold_iteration += 1
+                next_scaffold = os.path.join(t_dir, 'cur_scaffold.{}.fasta'.format(cur_scaffold_iteration))
+                order_and_orient(inFasta=gap_contigs+'.refine2.fasta', inReference=cur_scaffold,
+                                 outFasta=next_scaffold)
+
+                refine_assembly(inFasta=next_scaffold, inBam=reads_bam, outFasta=next_scaffold+'.refine1.fasta',
+                                novo_params="-r Random -l 30 -g 40 -x 20 -t 502",
+                                min_coverage=2, major_cutoff=0.5)
+                refine_assembly(inFasta=next_scaffold+'.refine1.fasta', inBam=reads_bam, outFasta=next_scaffold+'.refine2.fasta',
+                                novo_params="-r Random -l 40 -g 40 -x 20 -t 100",
+                                min_coverage=3, major_cutoff=0.5)
+
+                cur_scaffold = next_scaffold
+
+            # contigId2seq = { rec.id : rec.seq for rec in Bio.SeqIO.parse(gap_contigs+'.refine2.fasta', 'fasta') }
+
+            # contigs_blast_db_pfx = os.path.join(t_dir, 'gap_{}_contigs_blast_db'.format(gap.gap_num))
+            # tools.blast.MakeblastdbTool().build_database(fasta_files=gap_contigs+'.refine2.fasta',
+            #                                              database_prefix_path=contigs_blast_db_pfx,
+            #                                              makeblastdb_opts=['-hash_index', '-parse_seqids'])
+
+            # for flank_num in (0,1):
+
+            #     hits = blastn.get_hits(inFasta=flank_fasta[flank_num], db=contigs_blast_db_pfx,
+            #                            blast_opts=['-task', 'blastn', '-word_size', 4, '-evalue', '1e-6',
+            #                                        '-perc_identity', '95', '-qcov_hsp_perc', '95', '-max_hsps', '1',
+            #                                        '-max_target_seqs', '20'])[0]
+            #     if hits.alignments:
+            #         alignment = hits.alignments[0]
+            #         print('AAAAAAAAAAAAAAAAAAAAAAAAA', dir(alignment), alignment.hit_id, len(alignment.hsps),
+            #               alignment.hsps[0].strand)
+            #         hsp = alignment.hsps[0]
+            #         print(hsp.query_start, hsp.query_end, hsp.sbjct_start, hsp.sbjct_end)
+            #         assert hsp.query_start < hsp.query_end
+
+            #         print('HHHHHHHHHHHHHERE')
+
+            #         contig_seq = contigId2seq[alignment.hit_id]
+            #         if hsp.sbjct_start < hsp.sbjct_end:
+            #             sbjct_start = hsp.sbjct_start-1
+            #             sbjct_end = hsp.sbjct_end
+            #         else:
+            #             print('REVERSING')
+            #             print('bef_reverse')
+            #             print('len(contig_seq)=', len(contig_seq))
+            #             print('contig_seq:')
+            #             print(contig_seq)
+            #             print('contig_seq_hit:')
+            #             print('len=', len(contig_seq[hsp.sbjct_end:hsp.sbjct_start]))
+            #             print(str(contig_seq[hsp.sbjct_end:hsp.sbjct_start])[::-1])
+            #             contig_seq = contig_seq.reverse_complement()
+            #             sbjct_start = len(contig_seq)-hsp.sbjct_end
+            #             sbjct_end = sbjct_start + (hsp.sbjct_start - hsp.sbjct_end + 1)
+
+            #             print('aft_reverse')
+            #             print('len(contig_seq)=', len(contig_seq))
+            #             print('contig_seq:')
+            #             print(contig_seq)
+            #             print('contig_seq_hit:')
+            #             print(contig_seq[sbjct_start:sbjct_end])
+
+
+            #         print('SEEEEE')
+            #         print(hsp.query)
+            #         print(hsp.match)
+            #         print(hsp.sbjct)
+            #         print(contig_seq[sbjct_start:sbjct_end])
+            #         print('sbjct_start=', sbjct_start, 'sbjct_end=', sbjct_end)
+
+            #         cur_scaffold_recs = Bio.SeqIO.parse(cur_scaffold, 'fasta')
+            #         new_scaffold_recs = []
+            #         for scaf_rec in cur_scaffold_recs:
+            #             if scaf_rec.id == gap.scaffold_segment_id:
+            #                 print('flank_num=', flank_num, 'scaf_rec.id=', scaf_rec.id)
+            #                 print('scaf_rec.seq=')
+            #                 print(scaf_rec.seq)
+
+            #                 print('gap=', gap)
+            #                 print('hit_id=', alignment.hit_id)
+            #                 print('sbjct_start-1=', sbjct_start-1)
+            #                 print('sbjct_end-1+gap.gap_seq_len=', sbjct_end-1+gap.gap_seq_len)
+            #                 if flank_num == 0:
+            #                     print('Flank 0')
+            #                     gap_fill_seq = contig_seq[sbjct_start-1:sbjct_end-1+gap.gap_seq_len]
+            #                     print('len(gap_fill_seq)=', len(gap_fill_seq))
+            #                     print('gap_fill_seq:')
+            #                     print(gap_fill_seq)
+
+            #                     print('BEF_FILL')
+            #                     print('scaf_rec.seq=', scaf_rec.seq)
+            #                     print('scaf_rec.seq[gap.flank_begs[0]+len(gap_fill_seq):]=',
+            #                           scaf_rec.seq[gap.flank_begs[0]+len(gap_fill_seq):])
+            #                     print(scaf_rec.seq)
+
+            #                     scaf_rec_orig = scaf_rec
+            #                     scaf_rec = SeqRecord(scaf_rec.seq[:gap.flank_begs[0]] + \
+            #                                          gap_fill_seq + \
+            #                                          scaf_rec.seq[gap.flank_begs[0]+len(gap_fill_seq):],
+            #                                          id=scaf_rec.id)
+            #                     print('AFTER_FILL')
+            #                     print('scaf_rec.seq=', scaf_rec.seq)
+            #                     print('scaf_rec.seq[gap.flank_begs[0]+len(gap_fill_seq):]=',
+            #                           scaf_rec.seq[gap.flank_begs[0]+len(gap_fill_seq):])
+            #                     print(scaf_rec.seq)
+                                
+            #                 else:
+            #                     print('Flank 1')
+            #                     gap_fill_seq = contig_seq[max(0,sbjct_start-1-gap.gap_seq_len):sbjct_end-1]
+
+            #                     print('len(gap_fill_seq)=', len(gap_fill_seq))
+            #                     print('gap_fill_seq:')
+            #                     print(gap_fill_seq)
+
+            #                     scaf_rec = SeqRecord(scaf_rec.seq[:len(gap_fill_seq) + len(scaf_rec.seq[gap.flank_ends[1]:])] + \
+            #                                          gap_fill_seq + \
+            #                                          scaf_rec.seq[gap.flank_ends[1]:],
+            #                                          id=scaf_rec.id)
+
+            #                     print('scaf_rec.seq=', scaf_rec.seq)
+            #                     print('scaf_rec.seq[gap.flank_begs[0]+len(gap_fill_seq):]=',
+            #                           scaf_rec.seq[gap.flank_begs[0]+len(gap_fill_seq):])
+            #                     print(scaf_rec.seq)
+
+                                
+            #             new_scaffold_recs.append(scaf_rec)
+            #         cur_scaffold_iteration += 1
+            #         cur_scaffold = os.path.join(t_dir, 'cur_scaffold.{}.fasta'.format(cur_scaffold_iteration))
+            #         Bio.SeqIO.write(new_scaffold_recs, cur_scaffold, 'fasta')
+                    
+                    
+                    #Print(json.dumps(alignment, sort_keys=True,
+                    #                 indent=4, separators=(',', ': ')))
+
+                        # for hsp_num, hsp in enumerate(alignment.hsps):
+                        #     print('------------ seg={} gap={} flank={} align_num={} hsp={}\nflankseq={} -----------\n\n'.format(scaffold_segment_num, gap_num, i, alignment_num, hsp_num,
+                        #                                                                           flank_seqs[i]))
+                        #     print(hsp.query[:100])
+                        #     print(hsp.match[:100])
+                        #     print(hsp.sbjct[:100])
+                        #     print(dir(hsp))
+                        #     print('\n\n-----------------------------------------------------------------------\n\n')
+
+        #shutil.copyfile(cur_scaffold, out_scaffold)
+
+def parser_gap_seqs_from_refs(parser=argparse.ArgumentParser()):
+    parser.add_argument('in_scaffold', help='FASTA file containing the scaffold.  Each FASTA record corresponds to one '
+                        'segment (for multi-segment genomes).  Contigs within each segment are separated by Ns.')
+    parser.add_argument('in_refs', help='Taxon sequences')
+    parser.add_argument('out_gap_seqs_fasta', help='The possible seq in each gap.')
+    #parser.add_argument('reads_bam', help='The reads')
+    #parser.add_argument('clip_db', help='Adapters and contaminants')
+    #parser.add_argument('out_scaffold', help='Gapfilled scaffold')
+    parser.add_argument('--minGapLen', dest='min_gap_len', type=int, default=5, help='Min gap to close')
+    parser.add_argument('--minFlankLen', dest='min_flank_len', type=int, default=200, help='length of gap flanks')
+    util.cmd.common_args(parser, (('threads', None), ('loglevel', None), ('version', None), ('tmp_dir', None)))
+    util.cmd.attach_main(parser, gap_seqs_from_refs, split_args=True)
+    return parser
+
+__commands__.append(('gap_seqs_from_refs', parser_gap_seqs_from_refs))
 
 def full_parser():
     return util.cmd.make_parser(__commands__, __doc__)
