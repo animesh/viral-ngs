@@ -25,7 +25,7 @@ import util.misc
 
 
 TOOL_NAME = 'kmc'
-TOOL_VERSION = '3.1.1rc1'
+TOOL_VERSION = '3.1.2rc1'
 
 _log = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
