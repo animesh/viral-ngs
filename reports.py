@@ -16,6 +16,7 @@ import csv
 import math
 import shutil
 import functools
+import json
 
 import pysam
 from pybedtools import BedTool
@@ -1042,13 +1043,14 @@ __commands__.append(('fastqc', parser_fastqc))
 # =======================
 
 def compute_assembly_improvability_metrics(raw_reads_bam, cleaned_reads_bam, taxon_refs_fasta, contigs_fasta, assembly_fasta,
-                                           out_metrics_tsv, kmer_size=tools.kmc.DEFAULT_KMER_SIZE):
+                                           out_metrics_json, kmer_size=tools.kmc.DEFAULT_KMER_SIZE):
     '''Compute metrics for determining whether an assembly may be potentially improvable with better computational
     methods.
     '''
 
     kmc_tool = tools.kmc.KmcTool()
     join = os.path.join
+    metrics = {}
     with util.file.tmp_dir(suffix='-asm-improv-metrics') as tmp_d:
         _tmp_f = functools.partial(join, tmp_d)
         taxon_kmer_db = kmc_tool.build_kmer_db(seq_files=[taxon_refs_fasta], kmer_db=_tmp_f('taxon-kmers'), kmer_size=kmer_size)
@@ -1060,13 +1062,24 @@ def compute_assembly_improvability_metrics(raw_reads_bam, cleaned_reads_bam, tax
         taxon_kmers_in_assembly_db = kmc_tool.kmers_binary_op(op='intersect', kmer_db1=taxon_kmer_db,
                                                               kmer_db2=assembly_kmer_db,
                                                               kmer_db_out=_tmp_f('taxon-kmers-in-assembly'))
-        taxon_kmers_in_contigs_but_not_assembly = kmc_tool.kmers_binary_op(op='kmers_subtract',
-                                                                           kmer_db1=taxon_kmers_in_contigs_db,
-                                                                           kmer_db2=taxon_kmers_in_assembly_db,
-                                                                           kmer_db_out=_tmp_f('taxon-kmers-in-contigs-but-not-asm'))
-        with open(out_metrics_tsv, 'wt') as out:
-            out.write('{}\t{}\n'.format('taxon_kmers_in_contigs_but_not_assembly',
-                                        kmc_tool.get_kmer_db_info(taxon_kmers_in_contigs_but_not_assembly).total_kmers))
+        taxon_kmers_in_contigs_but_not_assembly_db = \
+            kmc_tool.kmers_binary_op(op='kmers_subtract',
+                                     kmer_db1=taxon_kmers_in_contigs_db,
+                                     kmer_db2=taxon_kmers_in_assembly_db,
+                                     kmer_db_out=_tmp_f('taxon-kmers-in-contigs-but-not-asm'))
+        metrics['taxon_kmers'] = \
+            kmc_tool.get_kmer_db_info(taxon_kmers_db).total_kmers
+        metrics['contigs_kmers'] = \
+            kmc_tool.get_kmer_db_info(contigs_kmers_db).total_kmers
+        metrics['assembly_kmers'] = \
+            kmc_tool.get_kmer_db_info(assembly_kmers_db).total_kmers
+        metrics['taxon_kmers_in_contigs'] = \
+            kmc_tool.get_kmer_db_info(taxon_kmers_in_contigs_db).total_kmers
+        metrics['taxon_kmers_in_assembly'] = \
+            kmc_tool.get_kmer_db_info(taxon_kmers_in_assembly_db).total_kmers
+        metrics['taxon_kmers_in_contigs_but_not_assembly'] = \
+            kmc_tool.get_kmer_db_info(taxon_kmers_in_contigs_but_not_assembly_db).total_kmers
+        util.file.dump_file(fname=out_metrics_json, value=json.dumps(metrics, indent=4, separators=(',', ': '), sort_keys=True))
         
     # end: with util.file.tmp_dir(suffix='-asm-improv-metrics') as tmp_d
 
@@ -1076,7 +1089,7 @@ def parser_compute_assembly_improvability_metrics(parser=argparse.ArgumentParser
     parser.add_argument("--taxonRefsFasta", dest='taxon_refs_fasta', help="Reference sequences from the taxon")
     parser.add_argument("--contigsFasta", dest='contigs_fasta', help="The assembled contigs, prior to scaffolding")
     parser.add_argument("--assemblyFasta", dest='assembly_fasta', help="The final assembly")
-    parser.add_argument("--outMetricsTsv", dest='out_metrics_tsv', help="Output file for improvability metrics")
+    parser.add_argument("--outMetricsJson", dest='out_metrics_json', help="Output file for improvability metrics")
     parser.add_argument("--kmerSize", dest='kmer_size', type=int, default=tools.kmc.DEFAULT_KMER_SIZE,
                         help='k-mer size for k-mer-based analyses')
     util.cmd.common_args(parser, (('loglevel', None), ('version', None)))
