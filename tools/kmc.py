@@ -13,6 +13,8 @@ import argparse
 import shutil
 import re
 import collections
+import contextlib
+import tempfile
 
 import Bio.SeqIO
 
@@ -127,6 +129,8 @@ class KmcTool(tools.Tool):
             subprocess.check_call(tool_cmd)
             _chk(os.path.isfile(kmer_db+'.kmc_pre') and os.path.isfile(kmer_db+'.kmc_suf'),
                 'kmer database files not created: {}'.format(kmer_db))
+
+        return kmer_db
 
     def execute(self, args, threads=None, return_output=False):  # pylint: disable=arguments-differ
         """Run kmc_tools with the given args.  If `return_output` is True, returns the stdout output."""
@@ -293,6 +297,7 @@ class KmcTool(tools.Tool):
                       '-cx{}'.format(result_max_occs),
                       '-cs{}'.format(result_counter_cap)], threads=threads)
         _chk(self.is_kmer_db(kmer_db_out), 'kmer_binary_op: output not created')
+        return kmer_db_out
 
     def set_kmer_counts(self, kmer_db_in, value, kmer_db_out, threads=None):
         """Create a copy of the kmer database with all counts set to specified value"""
@@ -301,5 +306,41 @@ class KmcTool(tools.Tool):
         # db1_min_occs, db1_max_occs, db2_min_occs, db2_max_occs, db_out_min_occs, db_out_max_occs,
         self.execute(['transform', kmer_db_in, 'set_counts', value, kmer_db_out], threads=threads)
         _chk(self.is_kmer_db(kmer_db_out), 'set_kmer_counts: output not created')
+
+    class KmerManager(object):
+        """Simplifies creation of kmer dbs"""
+
+        class KmerDb(object):
+            def __init__(self, kmc_tool, tmp_d, name, **kw):
+                self.kmc_tool = kmc_tool
+                self.tmp_d = tmp_d
+                self.name = name
+                self.kmer_size = kw['kmer_size']
+                self.kmer_db_dir = tempfile.mkdtemp(os.path.join(tmp_d, prefix=name))
+                self.kmer_db = os.path.join(kmer_db_dir, 'kdb')
+                self.kmc_tool.build_kmer_db(kmer_db=self.kmer_db, **kw)
+
+            def __len__(self):
+                """Return the number of kmers in the database"""
+                return self.kmc_tool.get_kmer_db_info(self.kmer_db).total_kmers
+
+            def __and__(self, other):
+                util.misc.chk(self.kmer_size == other.kmer_size)
+                #return KmcTool.KmerManager.KmerDb(kmc_tool=self.kmc_tool, tmp_d=self.tmp_d,
+                #                                  name='-inters-'.join((self.name, other.name)),
+                                                  
+                
+        def __init__(self, tmp_d, kmer_size=DEFAULT_KMER_SIZE):
+            self.kmc_tool = tools.kmc.KmcTool()
+            self.kmer_size = kmer_size
+            self.tmp_d = tmp_d
+
+        def make_kmer_db(name, **kw):
+            return KmcTool.KmerManager.KmerDb(kmc_tool=self.kmc_tool, tmp_d=self.tmp_d, kmer_size=self.kmer_size, **kw)
+        
+    @contextlib.contextmanager
+    def kmer_manager(self, kmer_size=DEFAULT_KMER_SIZE):
+        with util.file.tmp_dir(suffix='-kmer-mgr') as tmp_d:
+            yield KmcTool.KmerManager(tmp_d=tmp_d, kmer_size=kmer_size)
 
 # end: class KmcTool(tools.Tool)
