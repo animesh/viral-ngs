@@ -121,7 +121,6 @@ task filter_to_taxon {
   }
 
   output {
-    File   lastal_db_fasta_out    = "${lastal_db_fasta}"
     File   taxfilt_bam            = "${bam_basename}.taxfilt.bam"
     File   taxfilt_fastqc         = "${bam_basename}.taxfilt_fastqc.html"
     Int    filter_read_count_post = read_int("filter_read_count_post")
