@@ -114,7 +114,7 @@ class GitAnnexTool(tools.Tool):
 
     def __init__(self, install_methods=None):
         if install_methods is None:
-            install_methods = [tools.PreexistingUnixCommand(path=distutils.spawn.find_executable('git-annex')),
+            install_methods = [tools.PrexistingUnixCommand(path=distutils.spawn.find_executable('git-annex')),
                                tools.CondaPackage(TOOL_NAME, version=TOOL_VERSION, channel='conda-forge')]
         tools.Tool.__init__(self, install_methods=install_methods)
         self._batched_cmds = None
