@@ -9,6 +9,8 @@ import logging
 import collections
 import os
 import os.path
+import distutils
+import distutils.spawn
 import sys
 import stat
 import concurrent.futures
@@ -44,7 +46,7 @@ import util.misc
 import util.version
 
 TOOL_NAME = 'git-annex'
-TOOL_VERSION = '7.20191024'
+TOOL_VERSION = '7.20200204'
 
 _log = logging.getLogger(__name__)
 _log.setLevel(logging.DEBUG)
@@ -112,7 +114,8 @@ class GitAnnexTool(tools.Tool):
 
     def __init__(self, install_methods=None):
         if install_methods is None:
-            install_methods = [tools.CondaPackage(TOOL_NAME, version=TOOL_VERSION, channel='conda-forge')]
+            install_methods = [tools.PreexistingUnixCommand(path=distutils.spawn.find_executable('git-annex')),
+                               tools.CondaPackage(TOOL_NAME, version=TOOL_VERSION, channel='conda-forge')]
         tools.Tool.__init__(self, install_methods=install_methods)
         self._batched_cmds = None
         self._url2filestat = collections.OrderedDict()
