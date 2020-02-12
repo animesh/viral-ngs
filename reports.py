@@ -1042,7 +1042,7 @@ __commands__.append(('fastqc', parser_fastqc))
 
 # =======================
 
-def compute_assembly_improvability_metrics(raw_reads_bam, cleaned_reads_bam, taxon_refs_fasta, contigs_fasta, assembly_fasta,
+def improv_report(raw_reads_bam, cleaned_reads_bam, taxon_refs_fasta, contigs_fasta, assembly_fasta,
                                            out_metrics_json, kmer_size=tools.kmc.DEFAULT_KMER_SIZE):
     '''Compute metrics for determining whether an assembly may be potentially improvable with better computational
     methods.
@@ -1083,7 +1083,7 @@ def compute_assembly_improvability_metrics(raw_reads_bam, cleaned_reads_bam, tax
         
     # end: with util.file.tmp_dir(suffix='-asm-improv-metrics') as tmp_d
 
-def parser_compute_assembly_improvability_metrics(parser=argparse.ArgumentParser()):
+def parser_improv_report(parser=argparse.ArgumentParser()):
     parser.add_argument("--rawReadsBam", dest='raw_reads_bam', help="Raw reads (after human depletion)")
     parser.add_argument("--cleanedReadsBam", dest='cleaned_reads_bam', help="Cleaned reads (after human depletion)")
     parser.add_argument("--taxonRefsFasta", dest='taxon_refs_fasta', help="Reference sequences from the taxon")
@@ -1093,11 +1093,11 @@ def parser_compute_assembly_improvability_metrics(parser=argparse.ArgumentParser
     parser.add_argument("--kmerSize", dest='kmer_size', type=int, default=tools.kmc.DEFAULT_KMER_SIZE,
                         help='k-mer size for k-mer-based analyses')
     util.cmd.common_args(parser, (('loglevel', None), ('version', None)))
-    util.cmd.attach_main(parser, compute_assembly_improvability_metrics, split_args=True)
+    util.cmd.attach_main(parser, improv_report, split_args=True)
     return parser
 
 
-__commands__.append(('compute_assembly_improvability_metrics', parser_compute_assembly_improvability_metrics))
+__commands__.append(('improv_report', parser_improv_report))
 
 
 # =======================

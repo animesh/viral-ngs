@@ -275,7 +275,7 @@ task assembly_improvability_report {
 
   command {
     set -ex -o pipefail
-    reports.py \
+    reports.py improv_report \
       ${'--rawReadsBam ' + raw_reads_bam} \
       ${'--cleanedReadsBam ' + cleaned_reads_bam} \
       ${'--contigFasta ' + contigs_fasta} \
