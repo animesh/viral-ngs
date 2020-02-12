@@ -1,11 +1,10 @@
 import "tasks_reports.wdl" as reports
 
-workflow improv_metrics {
-    meta {
+workflow improv_report {
+   call reports.assembly_improvability_report {
+   }
+   meta {
        description: "Compute assembly improvability metrics"
-    }
-
-   call reports.compute_assembly_improvability_metrics {
    }
 }
 

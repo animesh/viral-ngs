@@ -263,7 +263,7 @@ task aggregate_metagenomics_reports {
   }
 }
 
-task compute_assembly_improvability_metrics {
+task assembly_improvability_report {
   File? raw_reads_bam
   File? cleaned_reads_bam
   File taxon_refs_fasta
@@ -271,7 +271,7 @@ task compute_assembly_improvability_metrics {
   File  assembly_fasta
   Int?  kmer_size=25
 
-  String reads_basename=basename(raw_reads_bam, ".bam")
+  String assembly_basename=basename(assembly_fasta, ".fasta")
 
   command {
     set -ex -o pipefail
@@ -281,11 +281,11 @@ task compute_assembly_improvability_metrics {
       ${'--contigFasta ' + contigs_fasta} \
       ${'--assemblyFasta ' + assembly_fasta} \
       ${'--kmerSize ' + kmer_size} \
-      --outMetricsTsv "${reads_basename}.improv_metrics.json"
+      --outMetricsTsv "${assembly_basename}.improv_metrics.json"
   }
 
   output {
-    Map[String,Int] improv_metrics = read_map("${reads_basename}.improv_metrics.json")
+    Map[String,Int] improv_metrics = read_map("${assembly_basename}.improv_metrics.json")
     String viralngs_version = "viral-ngs_version_unknown"
   }
 
@@ -295,5 +295,10 @@ task compute_assembly_improvability_metrics {
     docker: "quay.io/broadinstitute/viral-ngs"
     dx_instance_type: "mem1_ssd1_v2_x4"
   }
+
+  meta {
+    description: "Compute metrics that help determine whether an assembly may be improvable with better computational methods"
+  }
 }
+
 

@@ -30,9 +30,8 @@ workflow assemble_denovo {
       reads_unmapped_bam = reads_unmapped_bam
   }
 
-  call reports.compute_assembly_improvability_metrics {
+  call reports.assembly_improvability_report {
     input:
-      #raw_reads_bam = reads_unmapped_bam,
       taxon_refs_fasta = lastal_db_fasta,
       contigs_fasta = assemble.contigs_fasta,
       assembly_fasta = refine_2x_and_plot.final_assembly_fasta
