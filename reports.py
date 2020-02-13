@@ -1068,9 +1068,9 @@ def improv_report(raw_reads_bam, cleaned_reads_bam, taxon_refs_fasta, contigs_fa
                                      kmer_db2=taxon_kmers_in_assembly_db,
                                      kmer_db_out=_tmp_f('taxon-kmers-in-contigs-but-not-asm'))
         metrics['taxon_kmers'] = \
-            kmc_tool.get_kmer_db_info(taxon_kmers_db).total_kmers
+            kmc_tool.get_kmer_db_info(taxon_kmer_db).total_kmers
         metrics['contigs_kmers'] = \
-            kmc_tool.get_kmer_db_info(contigs_kmers_db).total_kmers
+            kmc_tool.get_kmer_db_info(contigs_kmer_db).total_kmers
         metrics['assembly_kmers'] = \
             kmc_tool.get_kmer_db_info(assembly_kmers_db).total_kmers
         metrics['taxon_kmers_in_contigs'] = \

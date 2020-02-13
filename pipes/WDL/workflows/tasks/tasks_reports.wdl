@@ -278,10 +278,11 @@ task assembly_improvability_report {
     reports.py improv_report \
       ${'--rawReadsBam ' + raw_reads_bam} \
       ${'--cleanedReadsBam ' + cleaned_reads_bam} \
+      ${'--taxonRefsFasta ' + taxon_refs_fasta} \
       ${'--contigsFasta ' + contigs_fasta} \
       ${'--assemblyFasta ' + assembly_fasta} \
       ${'--kmerSize ' + kmer_size} \
-      --outMetricsTsv "${assembly_basename}.improv_metrics.json"
+      --outMetricsJson "${assembly_basename}.improv_metrics.json"
   }
 
   output {
