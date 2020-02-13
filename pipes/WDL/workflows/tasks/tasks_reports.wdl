@@ -286,7 +286,7 @@ task assembly_improvability_report {
   }
 
   output {
-    Map[String,Int] improv_metrics = read_map("${assembly_basename}.improv_metrics.json")
+    Map[String,Int] improv_metrics = read_json("${assembly_basename}.improv_metrics.json")
     String viralngs_version = "viral-ngs_version_unknown"
   }
 
