@@ -1745,7 +1745,8 @@ def _prepare_analysis_crogit_do(inputs,
 
     util.file.mkdir_p(analysis_dir)
 
-    _log.info('TTTTTTTTTTT analysis_dir=%s', analysis_dir)
+    _log.info('TTTTTTTTTTT analysis_dir=%s docker_img_hash=%s workflow_name=%s inputs=%s',
+              analysis_dir, docker_img_hash, workflow_name, inputs)
 
     wdl_dir = _get_wdl_for_docker_img(docker_img=docker_img_hash, workflow_name=workflow_name, copy_to=None)
     git_annex_tool.copy_annexed_file(os.path.join(wdl_dir, 'imports.zip'), analysis_dir)
@@ -1938,7 +1939,7 @@ def _is_prepared_analysis_dir(analysis_dir):
 # *** generate_benchmark_variant_dirs
 
 def _generate_benchmark_variant(benchmarks_spec_dir, benchmark_dir, benchmark_variant_name, benchmark_variant_def, git_annex_tool,
-                                copy_to=None):
+                                copy_to=None, base_variant='orig'):
     """Generate a run-ready analysis dir for the given benchmark and benchmark variant."""
 
     analysis_dir = os.path.join(benchmark_dir, 'benchmark_variants', benchmark_variant_name)
@@ -1946,13 +1947,16 @@ def _generate_benchmark_variant(benchmarks_spec_dir, benchmark_dir, benchmark_va
         _log.info('Benchmark variant already generated, skipping: %s', analysis_dir)
         return
     util.file.mkdir_p(analysis_dir)
-    git_annex_tool.get(os.path.join(benchmarks_spec_dir, benchmark_dir, 'inputs-git-links.json'))
-    run_inputs = _json_loadf(os.path.join(benchmarks_spec_dir, benchmark_dir, 'inputs-git-links.json'))
-    git_annex_tool.get(os.path.join(benchmarks_spec_dir, benchmark_dir, 'metadata_with_gitlinks.json'))
-    metadata = _json_loadf(os.path.join(benchmarks_spec_dir, benchmark_dir, 'metadata_with_gitlinks.json')) \
-        if os.path.lexists(os.path.join(benchmarks_spec_dir, benchmark_dir, 'metadata_with_gitlinks.json')) else {}
+    run_inputs = _json_loadf(os.path.join(benchmarks_spec_dir, benchmark_dir, 'benchmark_variants', base_variant,
+                                          'inputs-git-links.json'))
+    metadata = _json_loadf(os.path.join(benchmarks_spec_dir, benchmark_dir, 'benchmark_variants', base_variant,
+                                        'metadata_with_gitlinks.json')) \
+        if os.path.lexists(os.path.join(benchmarks_spec_dir, benchmark_dir, 'benchmark_variants', base_variant,
+                                        'metadata_with_gitlinks.json')) else {}
+    _log.info('CALLING QRY: def=%s', benchmark_variant_def)
     run_inputs = _qry_json(json_data=dict(run_inputs=run_inputs, metadata=metadata),
                            jmespath_expr=benchmark_variant_def)
+    _log.info('RETURNED FROM QRY: def=%s run_inputs=%s', benchmark_variant_def, run_inputs)
     _prepare_analysis_crogit_do(inputs=run_inputs, analysis_dir=analysis_dir, analysis_labels={}, git_annex_tool=git_annex_tool,
                                 copy_to=copy_to)
     if copy_to:
@@ -1986,12 +1990,19 @@ def generate_benchmark_variant_dirs(benchmarks_spec_files, one_benchmark_dir=Non
                 for benchmark_variant_name, benchmark_variant_def in benchmarks_spec['benchmark_variants'].items():
                     if one_benchmark_variant and benchmark_variant_name != one_benchmark_variant: continue
 
+                    if _is_mapping(benchmark_variant_def):
+                        base_variant = benchmark_variant_def.get('base', 'orig')
+                        benchmark_variant_def = benchmark_variant_def['def']
+                    else:
+                        base_variant = 'orig'
+
                     if 'benchmark_variant_frame' in benchmarks_spec:
                         benchmark_variant_def = benchmarks_spec['benchmark_variant_frame'].replace('BENCHMARK_VARIANT_DEF',
                                                                                                    benchmark_variant_def)
 
                     _generate_benchmark_variant(benchmarks_spec_dir, benchmark_dir, benchmark_variant_name,
-                                                benchmark_variant_def, git_annex_tool, copy_to=copy_to)
+                                                benchmark_variant_def, git_annex_tool, copy_to=copy_to,
+                                                base_variant=base_variant)
 
 def parser_generate_benchmark_variant_dirs(parser=argparse.ArgumentParser()):
     parser.add_argument('benchmarks_spec_files', nargs='+', metavar='BENCHMARKS_SPEC_FILE', help='benchmarks spec in yaml')
