@@ -1042,8 +1042,7 @@ __commands__.append(('fastqc', parser_fastqc))
 
 # =======================
 
-def improv_report(raw_reads_bam, cleaned_reads_bam, taxon_refs_fasta, contigs_fasta, assembly_fasta,
-                                           out_metrics_json, kmer_size=tools.kmc.DEFAULT_KMER_SIZE):
+def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_metrics_json, kmer_size=tools.kmc.DEFAULT_KMER_SIZE):
     '''Compute metrics for determining whether an assembly may be potentially improvable with better computational
     methods.
     '''
@@ -1051,53 +1050,42 @@ def improv_report(raw_reads_bam, cleaned_reads_bam, taxon_refs_fasta, contigs_fa
     kmc_tool = tools.kmc.KmcTool()
     join = os.path.join
     metrics = {}
-    with util.file.tmp_dir(suffix='-asm-improv-metrics') as tmp_d:
+    with util.file.tmp_dir(suffix='-assembly-optimality-metrics') as tmp_d:
         _tmp_f = functools.partial(join, tmp_d)
         taxon_kmer_db = kmc_tool.build_kmer_db(seq_files=[taxon_refs_fasta], kmer_db=_tmp_f('taxon-kmers'), kmer_size=kmer_size)
-        contigs_kmer_db = kmc_tool.build_kmer_db(seq_files=[contigs_fasta], kmer_db=_tmp_f('contigs-kmers'), kmer_size=kmer_size)
-        assembly_kmer_db = kmc_tool.build_kmer_db(seq_files=[assembly_fasta],
-                                                  kmer_db=_tmp_f('assembly-kmers'), kmer_size=kmer_size)
-        taxon_kmers_in_contigs_db = kmc_tool.kmers_binary_op(op='intersect', kmer_db1=taxon_kmer_db, kmer_db2=contigs_kmer_db,
-                                                             kmer_db_out=_tmp_f('taxon-kmers-in-contigs'))
-        taxon_kmers_in_assembly_db = kmc_tool.kmers_binary_op(op='intersect', kmer_db1=taxon_kmer_db,
-                                                              kmer_db2=assembly_kmer_db,
-                                                              kmer_db_out=_tmp_f('taxon-kmers-in-assembly'))
-        taxon_kmers_in_contigs_but_not_assembly_db = \
-            kmc_tool.kmers_binary_op(op='kmers_subtract',
-                                     kmer_db1=taxon_kmers_in_contigs_db,
-                                     kmer_db2=taxon_kmers_in_assembly_db,
-                                     kmer_db_out=_tmp_f('taxon-kmers-in-contigs-but-not-asm'))
-        metrics['taxon_kmers'] = \
-            kmc_tool.get_kmer_db_info(taxon_kmer_db).total_kmers
-        metrics['contigs_kmers'] = \
-            kmc_tool.get_kmer_db_info(contigs_kmer_db).total_kmers
-        metrics['assembly_kmers'] = \
-            kmc_tool.get_kmer_db_info(assembly_kmer_db).total_kmers
-        metrics['taxon_kmers_in_contigs'] = \
-            kmc_tool.get_kmer_db_info(taxon_kmers_in_contigs_db).total_kmers
-        metrics['taxon_kmers_in_assembly'] = \
-            kmc_tool.get_kmer_db_info(taxon_kmers_in_assembly_db).total_kmers
-        metrics['taxon_kmers_in_contigs_but_not_assembly'] = \
-            kmc_tool.get_kmer_db_info(taxon_kmers_in_contigs_but_not_assembly_db).total_kmers
+        metrics['taxon_kmers'] = kmc_tool.get_kmer_db_info(taxon_kmer_db).total_kmers
+        prev_stage_name, prev_stage_taxon_kmer_db = None, None
+        for stage_name, stage_file in assembly_stages:
+            stage_kmer_db = kmc_tool.build_kmer_db(seq_files=[stage_file],
+                                                   kmer_db=_tmp_f(stage_name + '-kmers'), kmer_size=kmer_size)
+            stage_taxon_kmer_db = kmc_tool.kmers_binary_op(op='intersect', kmer_db1=taxon_kmer_db, kmer_db2=stage_kmer_db,
+                                                           kmer_db_out=_tmp_f(stage_name + _'-taxon-kmers'))
+            metrics[stage_name+'_kmers'] = kmc_tool.get_kmer_db_info(stage_kmer_db).total_kmers
+            metrics[stage_name+'_taxon_kmers'] = kmc_tool.get_kmer_db_info(stage_taxon_kmer_db).total_kmers
+            if prev_stage_name:
+                stage_lost_taxon_kmer_db = kmc_tool.kmc_binary_op(op='kmers_subtract', kmer_db_1=prev_stage_taxon_kmer_db,
+                                                                  kmer_db_2=stage_taxon_kmer_db,
+                                                                  kmer_db_out=_tmp_f(stage_name + '-taxon-kmems-lost-since-' + \
+                                                                                     prev_stage_name))
+                metrics[stage_name+'_taxon_kmers_lost_since_'+prev_stage_name] = \
+                    kmc_tool.get_kmer_db_info(stage_lost_taxon_kmer_db).total_kmers
+            prev_stage_name, prev_stage_taxon_kmer_db = stage_name, stage_taxon_kmer_db
         util.file.dump_file(fname=out_metrics_json, value=json.dumps(metrics, indent=4, separators=(',', ': '), sort_keys=True))
         
-    # end: with util.file.tmp_dir(suffix='-asm-improv-metrics') as tmp_d
+    # end: with util.file.tmp_dir(suffix='-assembly-optimality-metrics') as tmp_d
 
-def parser_improv_report(parser=argparse.ArgumentParser()):
-    parser.add_argument("--rawReadsBam", dest='raw_reads_bam', help="Raw reads (after human depletion)")
-    parser.add_argument("--cleanedReadsBam", dest='cleaned_reads_bam', help="Cleaned reads (after human depletion)")
-    parser.add_argument("--taxonRefsFasta", dest='taxon_refs_fasta', help="Reference sequences from the taxon")
-    parser.add_argument("--contigsFasta", dest='contigs_fasta', help="The assembled contigs, prior to scaffolding")
-    parser.add_argument("--assemblyFasta", dest='assembly_fasta', help="The final assembly")
-    parser.add_argument("--outMetricsJson", dest='out_metrics_json', help="Output file for improvability metrics")
+def parser_assembly_optimality_report(parser=argparse.ArgumentParser()):
+    parser.add_argument("taxon_refs_fasta", help="Reference sequences from the taxon")
+    parser.add_argument("--assemblyStage", nargs=2, action='append', metavar=('ASSEMBLY_STAGE_NAME', 'ASSEMBLY_STAGE_FILE'))
+    parser.add_argument("--outMetricsJson", dest='out_metrics_json', required=True, help="Output file for improvability metrics")
     parser.add_argument("--kmerSize", dest='kmer_size', type=int, default=tools.kmc.DEFAULT_KMER_SIZE,
                         help='k-mer size for k-mer-based analyses')
     util.cmd.common_args(parser, (('loglevel', None), ('version', None)))
-    util.cmd.attach_main(parser, improv_report, split_args=True)
+    util.cmd.attach_main(parser, assembly_optimality_report, split_args=True)
     return parser
 
 
-__commands__.append(('improv_report', parser_improv_report))
+__commands__.append(('assembly_optimality_report', parser_assembly_optimality_report))
 
 
 # =======================

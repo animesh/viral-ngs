@@ -263,10 +263,10 @@ task aggregate_metagenomics_reports {
   }
 }
 
-task assembly_improvability_report {
+task assembly_optimality_report {
+  File taxon_refs_fasta
   File? raw_reads_bam
   File? cleaned_reads_bam
-  File taxon_refs_fasta
   File? contigs_fasta
   File  assembly_fasta
   Int?  kmer_size=25
@@ -275,7 +275,7 @@ task assembly_improvability_report {
 
   command {
     set -ex -o pipefail
-    reports.py improv_report \
+    reports.py assembly_optimality_report \
       ${'--rawReadsBam ' + raw_reads_bam} \
       ${'--cleanedReadsBam ' + cleaned_reads_bam} \
       ${'--taxonRefsFasta ' + taxon_refs_fasta} \
