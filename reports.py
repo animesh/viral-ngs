@@ -1059,7 +1059,7 @@ def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_metrics_js
             stage_kmer_db = kmc_tool.build_kmer_db(seq_files=[stage_file],
                                                    kmer_db=_tmp_f(stage_name + '-kmers'), kmer_size=kmer_size)
             stage_taxon_kmer_db = kmc_tool.kmers_binary_op(op='intersect', kmer_db1=taxon_kmer_db, kmer_db2=stage_kmer_db,
-                                                           kmer_db_out=_tmp_f(stage_name + _'-taxon-kmers'))
+                                                           kmer_db_out=_tmp_f(stage_name + '-taxon-kmers'))
             metrics[stage_name+'_kmers'] = kmc_tool.get_kmer_db_info(stage_kmer_db).total_kmers
             metrics[stage_name+'_taxon_kmers'] = kmc_tool.get_kmer_db_info(stage_taxon_kmer_db).total_kmers
             if prev_stage_name:
