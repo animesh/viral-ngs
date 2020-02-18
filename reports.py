@@ -1065,7 +1065,7 @@ def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_metrics_js
             if prev_stage_name:
                 stage_lost_taxon_kmer_db = kmc_tool.kmc_binary_op(op='kmers_subtract', kmer_db_1=prev_stage_taxon_kmer_db,
                                                                   kmer_db_2=stage_taxon_kmer_db,
-                                                                  kmer_db_out=_tmp_f(stage_name + '-taxon-kmems-lost-since-' + \
+                                                                  kmer_db_out=_tmp_f(stage_name + '-taxon-kmers-lost-since-' + \
                                                                                      prev_stage_name))
                 metrics[stage_name+'_taxon_kmers_lost_since_'+prev_stage_name] = \
                     kmc_tool.get_kmer_db_info(stage_lost_taxon_kmer_db).total_kmers
