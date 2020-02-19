@@ -282,11 +282,12 @@ task assembly_optimality_report {
       ${'--contigsFasta ' + contigs_fasta} \
       ${'--assemblyFasta ' + assembly_fasta} \
       ${'--kmerSize ' + kmer_size} \
-      --outMetricsJson "${assembly_basename}.improv_metrics.json"
+      --outTaxonKmerMetricsJson "${assembly_basename}.taxon_kmer_metrics.json"
   }
 
   output {
-    Map[String,Int] improv_metrics = read_json("${assembly_basename}.improv_metrics.json")
+    File taxon_kmer_metrics_json = 
+    Map[String,Map[String,Int]] stage_kmer_metrics = read_json("${assembly_basename}.stage_kmer_metrics.json")
     String viralngs_version = "viral-ngs_version_unknown"
   }
 

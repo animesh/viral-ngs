@@ -27,6 +27,13 @@ def _json_loads(s):
 def _json_loadf(fname):
     return _json_loads(util.file.slurp_file(fname, maxSizeMb=1000))
 
+def _pretty_print_json(json_dict, sort_keys=True):
+    """Return a pretty-printed version of a dict converted to json, as a string."""
+    return json.dumps(json_dict, indent=4, separators=(',', ': '), sort_keys=sort_keys)
+
+def _write_json(fname, **json_dict):
+    util.file.dump_file(fname=fname, value=_pretty_print_json(json_dict))
+
 class TestCommandHelp(unittest.TestCase):
 
     def test_help_parser_for_each_command(self):
@@ -42,23 +49,18 @@ class TestAssemblyOptimalityReport:
             """Return full path to a test input file for this module"""
             return os.path.join(util.file.get_test_input_path(self), fname)
 
-        metrics_json = str(tmp_path / 'metrics.json')
+        taxon_kmer_metrics_json = str(tmp_path / 'taxon_kmer_metrics.json')
 
         util.cmd.run_cmd(module=reports, cmd='assembly_optimality_report',
                          args=[_inp('hepatovirus_A_taxon_filter.fasta.gz'),
-                               '--stage', '10_cleaned', _inp('Hep_WGS19_270.bam'),
-                               '--stage', '20_taxfilt', _inp('Hep_WGS19_270.taxfilt.bam'),
+                               '--stage', '10_cleaned', _inp('Hep_WGS19_270.bam'), '++minOccs', 2,
+                               '--stage', '20_taxfilt', _inp('Hep_WGS19_270.taxfilt.bam'), '++minOccs', 2,
                                '--stage', '30_contigs', _inp('Hep_WGS19_270.assembly1-trinity.fasta'),
                                '--stage', '40_intermediate_scaffold', _inp('Hep_WGS19_270.intermediate_scaffold.fasta'),
                                '--stage', '50_scaffolded_imputed', _inp('Hep_WGS19_270.scaffolded_imputed.fasta'),
                                '--stage', '60_refine1', _inp('Hep_WGS19_270.refine1.fasta'),
                                '--stage', '90_final', _inp('Hep_WGS19_270.fasta'),
-                               '--outMetricsJson', metrics_json])
-        assert _json_loadf(metrics_json) == \
-            _json_loadf(_inp('Hep_WGS19_270.assembly_optimality_metrics.expected.json'))
-
-
-
-
-        
-
+                               '--outTaxonKmerMetricsJson', taxon_kmer_metrics_json])
+        #_write_json(_inp('Hep_WGS19_270.taxon_kmer_metrics.expected.2.json'), **_json_loadf(taxon_kmer_metrics_json))
+        assert _json_loadf(taxon_kmer_metrics_json) == \
+            _json_loadf(_inp('Hep_WGS19_270.taxon_kmer_metrics.expected.json'))
