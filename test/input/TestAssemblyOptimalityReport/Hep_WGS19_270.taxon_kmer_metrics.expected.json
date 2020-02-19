@@ -38,6 +38,7 @@
         "kmers": 3866,
         "stage_num": 6,
         "taxon_kmers": 3841,
-        "taxon_kmers_lost_since_60_refine1": 1757
+        "taxon_kmers_lost_since_10_cleaned": 1651,
+        "taxon_kmers_lost_since_30_contigs": 2112
     }
 }

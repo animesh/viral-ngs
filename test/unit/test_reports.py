@@ -59,7 +59,7 @@ class TestAssemblyOptimalityReport:
                                '--stage', '40_intermediate_scaffold', _inp('Hep_WGS19_270.intermediate_scaffold.fasta'),
                                '--stage', '50_scaffolded_imputed', _inp('Hep_WGS19_270.scaffolded_imputed.fasta'),
                                '--stage', '60_refine1', _inp('Hep_WGS19_270.refine1.fasta'),
-                               '--stage', '90_final', _inp('Hep_WGS19_270.fasta'),
+                               '--stage', '90_final', _inp('Hep_WGS19_270.fasta'), '++cmpStages', '10_cleaned', '30_contigs',
                                '--outTaxonKmerMetricsJson', taxon_kmer_metrics_json])
         #_write_json(_inp('Hep_WGS19_270.taxon_kmer_metrics.expected.2.json'), **_json_loadf(taxon_kmer_metrics_json))
         assert _json_loadf(taxon_kmer_metrics_json) == \
