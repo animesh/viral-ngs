@@ -1060,7 +1060,8 @@ def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_metrics_js
             stage_metrics = dict(stage_num=stage_num)
             metrics[stage.name] = stage_metrics
             stage_kmer_db = kmc_tool.build_kmer_db(seq_files=[stage.seqs_file],
-                                                   kmer_db=_tmp_f(stage.name + '-kmers'), kmer_size=kmer_size)
+                                                   kmer_db=_tmp_f(stage.name + '-kmers'), kmer_size=kmer_size,
+                                                   min_occs=stage.min_occs)
             stage_taxon_kmer_db = kmc_tool.kmers_binary_op(op='intersect', kmer_db1=taxon_kmer_db, kmer_db2=stage_kmer_db,
                                                            kmer_db_out=_tmp_f(stage.name + '-taxon-kmers'))
             stage_metrics['kmers'] = kmc_tool.get_kmer_db_info(stage_kmer_db).total_kmers
@@ -1084,7 +1085,8 @@ def parser_assembly_optimality_report(parser=argparse.ArgumentParser()):
         parser = argparse.ArgumentParser(prefix_chars='+', prog='')
         parser.add_argument('name')
         parser.add_argument('seqs_file')
-        parser.add_argument('++min_occs', type=int, default=1, help='consider only kmers with at least this many occurrences')
+        parser.add_argument('++minOccs', dest='min_occs', type=int, default=1,
+                            help='consider only kmers with at least this many occurrences')
         return parser
 
     parser.add_argument('--stage', dest='assembly_stages', nargs='+', action=util.misc.NestedParserAction,
