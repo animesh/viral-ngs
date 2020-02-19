@@ -13,6 +13,7 @@ import sys
 import copy
 import yaml, json
 import time
+import argparse
 
 import util.file
 
@@ -634,3 +635,57 @@ def wraps(f):
 def unwrap(f):
     """Find the original function under layers of wrappers"""
     return f if not hasattr(f, '__wrapped__') else unwrap(f.__wrapped__)
+
+class NestedParserAction(argparse.Action):
+
+    """Parses a list of args using a specified parser.
+
+    Code adapted from argparse._AppendAction
+    """
+
+    def __init__(self,
+                 option_strings,
+                 dest,
+                 nargs=None,
+                 const=None,
+                 default=None,
+                 type=None,
+                 choices=None,
+                 required=False,
+                 help=None,
+                 metavar=None,
+                 nested_parser=None):
+        if nested_parser is None:
+            raise ValueError('nested_parser must be specified')
+        if nargs == 0:
+            raise ValueError('nothing for nested_parser to parse')
+        if const is not None:
+            raise ValueError('const should not be specified')
+        super(NestedParserAction, self).__init__(
+            option_strings=option_strings,
+            dest=dest,
+            nargs=nargs,
+            const=const,
+            default=default,
+            type=type,
+            choices=choices,
+            required=required,
+            help=help,
+            metavar=metavar)
+        self.nested_parser = nested_parser
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        items = copy.copy(self._ensure_namespace_has_attr_value(namespace, attr_name=self.dest,
+                                                                default_value=[]))
+        items.append(self.nested_parser.parse_args(values))
+        setattr(namespace, self.dest, items)
+
+    @staticmethod
+    def _ensure_namespace_has_attr_value(namespace, attr_name, default_value):
+        """Ensure that `namespace` has the attr `attr_name`, with default value `default_value`,
+        and return the attr's value."""
+        if getattr(namespace, attr_name, None) is None:
+            setattr(namespace, attr_name, default_value)
+        return getattr(namespace, attr_name)
+
+# end: class NestedParserAction(argparse.Action)

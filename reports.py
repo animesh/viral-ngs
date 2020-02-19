@@ -1047,6 +1047,7 @@ def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_metrics_js
     methods.
     '''
 
+
     kmc_tool = tools.kmc.KmcTool()
     join = os.path.join
     metrics = {}
@@ -1055,28 +1056,40 @@ def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_metrics_js
         taxon_kmer_db = kmc_tool.build_kmer_db(seq_files=[taxon_refs_fasta], kmer_db=_tmp_f('taxon-kmers'), kmer_size=kmer_size)
         metrics['taxon_kmers'] = kmc_tool.get_kmer_db_info(taxon_kmer_db).total_kmers
         prev_stage_name, prev_stage_taxon_kmer_db = None, None
-        for stage_name, stage_file in assembly_stages:
-            stage_kmer_db = kmc_tool.build_kmer_db(seq_files=[stage_file],
-                                                   kmer_db=_tmp_f(stage_name + '-kmers'), kmer_size=kmer_size)
+        for stage_num, stage in enumerate(assembly_stages):
+            stage_metrics = dict(stage_num=stage_num)
+            metrics[stage.name] = stage_metrics
+            stage_kmer_db = kmc_tool.build_kmer_db(seq_files=[stage.seqs_file],
+                                                   kmer_db=_tmp_f(stage.name + '-kmers'), kmer_size=kmer_size)
             stage_taxon_kmer_db = kmc_tool.kmers_binary_op(op='intersect', kmer_db1=taxon_kmer_db, kmer_db2=stage_kmer_db,
-                                                           kmer_db_out=_tmp_f(stage_name + '-taxon-kmers'))
-            metrics[stage_name+'_kmers'] = kmc_tool.get_kmer_db_info(stage_kmer_db).total_kmers
-            metrics[stage_name+'_taxon_kmers'] = kmc_tool.get_kmer_db_info(stage_taxon_kmer_db).total_kmers
+                                                           kmer_db_out=_tmp_f(stage.name + '-taxon-kmers'))
+            stage_metrics['kmers'] = kmc_tool.get_kmer_db_info(stage_kmer_db).total_kmers
+            stage_metrics['taxon_kmers'] = kmc_tool.get_kmer_db_info(stage_taxon_kmer_db).total_kmers
             if prev_stage_name:
-                stage_lost_taxon_kmer_db = kmc_tool.kmc_binary_op(op='kmers_subtract', kmer_db_1=prev_stage_taxon_kmer_db,
-                                                                  kmer_db_2=stage_taxon_kmer_db,
-                                                                  kmer_db_out=_tmp_f(stage_name + '-taxon-kmers-lost-since-' + \
+                stage_lost_taxon_kmer_db = kmc_tool.kmers_binary_op(op='kmers_subtract', kmer_db1=prev_stage_taxon_kmer_db,
+                                                                    kmer_db2=stage_taxon_kmer_db,
+                                                                    kmer_db_out=_tmp_f(stage.name + '-taxon-kmers-lost-since-' + \
                                                                                      prev_stage_name))
-                metrics[stage_name+'_taxon_kmers_lost_since_'+prev_stage_name] = \
+                stage_metrics['taxon_kmers_lost_since_'+prev_stage_name] = \
                     kmc_tool.get_kmer_db_info(stage_lost_taxon_kmer_db).total_kmers
-            prev_stage_name, prev_stage_taxon_kmer_db = stage_name, stage_taxon_kmer_db
+            prev_stage_name, prev_stage_taxon_kmer_db = stage.name, stage_taxon_kmer_db
         util.file.dump_file(fname=out_metrics_json, value=json.dumps(metrics, indent=4, separators=(',', ': '), sort_keys=True))
         
     # end: with util.file.tmp_dir(suffix='-assembly-optimality-metrics') as tmp_d
 
 def parser_assembly_optimality_report(parser=argparse.ArgumentParser()):
     parser.add_argument("taxon_refs_fasta", help="Reference sequences from the taxon")
-    parser.add_argument("--assemblyStage", nargs=2, action='append', metavar=('ASSEMBLY_STAGE_NAME', 'ASSEMBLY_STAGE_FILE'))
+
+    def _construct_stage_parser():
+        parser = argparse.ArgumentParser(prefix_chars='+', prog='')
+        parser.add_argument('name')
+        parser.add_argument('seqs_file')
+        parser.add_argument('++min_occs', type=int, default=1, help='consider only kmers with at least this many occurrences')
+        return parser
+
+    parser.add_argument('--stage', dest='assembly_stages', nargs='+', action=util.misc.NestedParserAction,
+                        nested_parser=_construct_stage_parser())
+
     parser.add_argument("--outMetricsJson", dest='out_metrics_json', required=True, help="Output file for improvability metrics")
     parser.add_argument("--kmerSize", dest='kmer_size', type=int, default=tools.kmc.DEFAULT_KMER_SIZE,
                         help='k-mer size for k-mer-based analyses')

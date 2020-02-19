@@ -1,0 +1,44 @@
+{
+    "10_cleaned": {
+        "kmers": 1673041,
+        "stage_num": 0,
+        "taxon_kmers": 6776
+    },
+    "20_taxfilt": {
+        "kmers": 7333,
+        "stage_num": 1,
+        "taxon_kmers": 6776,
+        "taxon_kmers_lost_since_10_cleaned": 0
+    },
+    "30_contigs": {
+        "kmers": 5917,
+        "stage_num": 2,
+        "taxon_kmers": 5851,
+        "taxon_kmers_lost_since_20_taxfilt": 925
+    },
+    "40_intermediate_scaffold": {
+        "kmers": 5930,
+        "stage_num": 3,
+        "taxon_kmers": 5899,
+        "taxon_kmers_lost_since_30_contigs": 3
+    },
+    "50_scaffolded_imputed": {
+        "kmers": 7421,
+        "stage_num": 4,
+        "taxon_kmers": 7371,
+        "taxon_kmers_lost_since_40_intermediate_scaffold": 0
+    },
+    "60_refine1": {
+        "kmers": 5623,
+        "stage_num": 5,
+        "taxon_kmers": 5598,
+        "taxon_kmers_lost_since_50_scaffolded_imputed": 1795
+    },
+    "90_final": {
+        "kmers": 3866,
+        "stage_num": 6,
+        "taxon_kmers": 3841,
+        "taxon_kmers_lost_since_60_refine1": 1757
+    },
+    "taxon_kmers": 324246
+}
