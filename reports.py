@@ -1088,16 +1088,16 @@ def parser_assembly_optimality_report(parser=argparse.ArgumentParser()):
 
     def _construct_stage_parser():
         parser = argparse.ArgumentParser(prefix_chars='+', prog='')
-        parser.add_argument('name')
-        parser.add_argument('seqs_file')
+        parser.add_argument('name', help='name of the assembly stage')
+        parser.add_argument('seqs_file', help='fasta or bam file for the assembly stage')
         parser.add_argument('++minOccs', dest='min_occs', type=int, default=1,
                             help='consider only kmers with at least this many occurrences')
         parser.add_argument('++cmpStages', dest='cmp_stages', nargs='*',
-                            help='Stages to compare to')
+                            help='Stages to compare this stage to')
         return parser
 
     parser.add_argument('--stage', dest='assembly_stages', nargs='+', action=util.misc.NestedParserAction,
-                        nested_parser=_construct_stage_parser())
+                        nested_parser=_construct_stage_parser(), help='Assembly stages (run with --stage +h for help)')
 
     parser.add_argument("--outTaxonKmerMetricsJson", dest='out_taxon_kmer_metrics_json',
                         required=True, help="Output file for improvability metrics")

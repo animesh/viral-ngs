@@ -1,20 +1,20 @@
 {
-    "10_cleaned": {
+    "10_cleaned_reads": {
         "kmers": 257951,
         "stage_num": 0,
         "taxon_kmers": 5454
     },
-    "20_taxfilt": {
+    "20_taxfilt_reads": {
         "kmers": 5520,
         "stage_num": 1,
         "taxon_kmers": 5454,
-        "taxon_kmers_lost_since_10_cleaned": 0
+        "taxon_kmers_lost_since_10_cleaned_reads": 0
     },
     "30_contigs": {
         "kmers": 5917,
         "stage_num": 2,
         "taxon_kmers": 5851,
-        "taxon_kmers_lost_since_20_taxfilt": 399
+        "taxon_kmers_lost_since_20_taxfilt_reads": 399
     },
     "40_intermediate_scaffold": {
         "kmers": 5930,
@@ -22,23 +22,23 @@
         "taxon_kmers": 5899,
         "taxon_kmers_lost_since_30_contigs": 3
     },
-    "50_scaffolded_imputed": {
+    "50_scaffold": {
         "kmers": 7421,
         "stage_num": 4,
         "taxon_kmers": 7371,
         "taxon_kmers_lost_since_40_intermediate_scaffold": 0
     },
-    "60_refine1": {
+    "60_refine1_assembly": {
         "kmers": 5623,
         "stage_num": 5,
         "taxon_kmers": 5598,
-        "taxon_kmers_lost_since_50_scaffolded_imputed": 1795
+        "taxon_kmers_lost_since_50_scaffold": 1795
     },
-    "90_final": {
+    "90_final_assembly": {
         "kmers": 3866,
         "stage_num": 6,
         "taxon_kmers": 3841,
-        "taxon_kmers_lost_since_10_cleaned": 1651,
+        "taxon_kmers_lost_since_10_cleaned_reads": 1651,
         "taxon_kmers_lost_since_30_contigs": 2112
     }
 }

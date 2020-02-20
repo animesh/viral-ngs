@@ -53,13 +53,14 @@ class TestAssemblyOptimalityReport:
 
         util.cmd.run_cmd(module=reports, cmd='assembly_optimality_report',
                          args=[_inp('hepatovirus_A_taxon_filter.fasta.gz'),
-                               '--stage', '10_cleaned', _inp('Hep_WGS19_270.bam'), '++minOccs', 2,
-                               '--stage', '20_taxfilt', _inp('Hep_WGS19_270.taxfilt.bam'), '++minOccs', 2,
+                               '--stage', '10_cleaned_reads', _inp('Hep_WGS19_270.bam'), '++minOccs', 2,
+                               '--stage', '20_taxfilt_reads', _inp('Hep_WGS19_270.taxfilt.bam'), '++minOccs', 2,
                                '--stage', '30_contigs', _inp('Hep_WGS19_270.assembly1-trinity.fasta'),
                                '--stage', '40_intermediate_scaffold', _inp('Hep_WGS19_270.intermediate_scaffold.fasta'),
-                               '--stage', '50_scaffolded_imputed', _inp('Hep_WGS19_270.scaffolded_imputed.fasta'),
-                               '--stage', '60_refine1', _inp('Hep_WGS19_270.refine1.fasta'),
-                               '--stage', '90_final', _inp('Hep_WGS19_270.fasta'), '++cmpStages', '10_cleaned', '30_contigs',
+                               '--stage', '50_scaffold', _inp('Hep_WGS19_270.scaffolded_imputed.fasta'),
+                               '--stage', '60_refine1_assembly', _inp('Hep_WGS19_270.refine1.fasta'),
+                               '--stage', '90_final_assembly', _inp('Hep_WGS19_270.fasta'), '++cmpStages', '10_cleaned_reads',
+                               '30_contigs',
                                '--outTaxonKmerMetricsJson', taxon_kmer_metrics_json])
         #_write_json(_inp('Hep_WGS19_270.taxon_kmer_metrics.expected.2.json'), **_json_loadf(taxon_kmer_metrics_json))
         assert _json_loadf(taxon_kmer_metrics_json) == \

@@ -7,4 +7,3 @@ workflow assembly_optimality_report {
        description: "Compute assembly optimality metrics"
    }
 }
-

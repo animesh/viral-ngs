@@ -264,30 +264,45 @@ task aggregate_metagenomics_reports {
 }
 
 task assembly_optimality_report {
-  File taxon_refs_fasta
+  File  taxon_refs_fasta
+
   File? raw_reads_bam
   File? cleaned_reads_bam
+  File? taxfilt_reads_bam
+
+  File? subsamp_reads_bam
   File? contigs_fasta
-  File  assembly_fasta
+
+  File? scaffold_fasta
+  File? intermediate_scaffold_fasta
+
+  File? refine1_assembly_fasta
+  File  final_assembly_fasta
+
   Int?  kmer_size=25
 
-  String assembly_basename=basename(assembly_fasta, ".fasta")
+  String assembly_basename=basename(final_assembly_fasta, ".fasta")
 
   command {
     set -ex -o pipefail
     reports.py assembly_optimality_report \
-      ${'--rawReadsBam ' + raw_reads_bam} \
-      ${'--cleanedReadsBam ' + cleaned_reads_bam} \
-      ${'--taxonRefsFasta ' + taxon_refs_fasta} \
-      ${'--contigsFasta ' + contigs_fasta} \
-      ${'--assemblyFasta ' + assembly_fasta} \
+      ${taxon_refs_fasta} \
+      ${'--stage 05_raw_reads' + raw_reads_bam} \
+      ${'--stage 10_cleaned_reads ' + cleaned_reads_bam} \
+      ${'--stage 20_taxfilt_reads ' + taxfilt_reads_bam} \
+      ${'--stage 25_subsamp_reads ' + subsamp_reads_bam} \
+      ${'--stage 30_contigs ' + contigs_fasta} \
+      ${'--stage 40_intermediate_scaffold ' + intermediate_scaffold_fasta} \
+      ${'--stage 50_scaffold ' + scaffold_fasta} \
+      ${'--stage 60_refine1_assembly ' + refine1_assembly_fasta} \
+      ${'--stage 90_final_assembly ' + final_assembly_fasta} \
       ${'--kmerSize ' + kmer_size} \
       --outTaxonKmerMetricsJson "${assembly_basename}.taxon_kmer_metrics.json"
   }
 
   output {
     File taxon_kmer_metrics_json = "${assembly_basename}.taxon_kmer_metrics.json"
-    Map[String,Map[String,Int]] taxon_kmer_metrics = read_json("${assembly_basename}.taxon_kmer_metrics.json")
+    Object taxon_kmer_metrics = read_json("${assembly_basename}.taxon_kmer_metrics.json")
     String viralngs_version = "viral-ngs_version_unknown"
   }
 

@@ -6,6 +6,7 @@ workflow assemble_denovo {
   
   File reads_unmapped_bam
   File   lastal_db_fasta
+  Boolean run_optimality_report = false
 
   call taxon_filter.filter_to_taxon {
     input:
@@ -30,10 +31,22 @@ workflow assemble_denovo {
       reads_unmapped_bam = reads_unmapped_bam
   }
 
-  call reports.assembly_improvability_report {
-    input:
-      taxon_refs_fasta = lastal_db_fasta,
-      contigs_fasta = assemble.contigs_fasta,
-      assembly_fasta = refine_2x_and_plot.final_assembly_fasta
+  if (run_optimality_report) {
+    call reports.assembly_optimality_report {
+      input:
+        taxon_refs_fasta = lastal_db_fasta,
+
+	cleaned_reads_bam = reads_unmapped_bam,
+	taxfilt_reads_bam = filter_to_taxon.taxfilt_bam,
+
+	subsamp_reads_bam = assemble.subsampBam,
+        contigs_fasta = assemble.contigs_fasta,
+
+	intermediate_scaffold_fasta = scaffold.intermediate_scaffold_fasta,
+	scaffold_fasta = scaffold.scaffold_fasta,
+	
+	refine1_assembly_fasta = refine_2x_and_plot.refine1_assembly_fasta,
+        final_assembly_fasta = refine_2x_and_plot.final_assembly_fasta
+    }
   }
 }
