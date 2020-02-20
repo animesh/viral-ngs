@@ -46,7 +46,7 @@ import util.misc
 import util.version
 
 TOOL_NAME = 'git-annex'
-TOOL_VERSION = '7.20200204'
+TOOL_VERSION = '7.20200219'
 
 _log = logging.getLogger(__name__)
 _log.setLevel(logging.DEBUG)
