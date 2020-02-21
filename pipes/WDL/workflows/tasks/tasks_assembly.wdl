@@ -1,15 +1,17 @@
 version 1.0
 
 task assemble {
-    File    reads_unmapped_bam
-    File    trim_clip_db
+    input {
+        File    reads_unmapped_bam
+        File    trim_clip_db
 
-    Int?    trinity_n_reads=250000
-    Int?    spades_n_reads=10000000
-    Int?    spades_min_contig_len=0
+        Int?    trinity_n_reads=250000
+        Int?    spades_n_reads=10000000
+        Int?    spades_min_contig_len=0
 
-    String? assembler="trinity"  # trinity, spades, or trinity-spades
-    Boolean? always_succeed=false
+        String? assembler="trinity"  # trinity, spades, or trinity-spades
+        Boolean? always_succeed=false
+    }
 
     # do this in two steps in case the input doesn't actually have "taxfilt" in the name
     String  sample_name = basename(basename(reads_unmapped_bam, ".bam"), ".taxfilt")
@@ -28,7 +30,7 @@ task assemble {
             ${trim_clip_db} \
             ${sample_name}.assembly1-${assembler}.fasta \
             ${'--n_reads=' + trinity_n_reads} \
-     	    ${true='--alwaysSucceed' false="" always_succeed} \
+            ${true='--alwaysSucceed' false="" always_succeed} \
             --JVMmemory "$mem_in_mb"m \
             --outReads=${sample_name}.subsamp.bam \
             --loglevel=DEBUG
@@ -39,7 +41,7 @@ task assemble {
             ${trim_clip_db} \
             ${sample_name}.assembly1-${assembler}.fasta \
             ${'--nReads=' + spades_n_reads} \
-	    ${true="--alwaysSucceed" false="" always_succeed} \
+            ${true="--alwaysSucceed" false="" always_succeed} \
             ${'--minContigLen=' + spades_min_contig_len} \
             --memLimitGb $mem_in_gb \
             --outReads=${sample_name}.subsamp.bam \
@@ -53,7 +55,7 @@ task assemble {
             ${'--n_reads=' + trinity_n_reads} \
             --JVMmemory "$mem_in_mb"m \
             --outReads=${sample_name}.subsamp.bam \
-     	    ${true='--always_succeed' false='' always_succeed} \
+          ${true='--always_succeed' false='' always_succeed} \
             --loglevel=DEBUG
           assembly.py assemble_spades \
             ${reads_unmapped_bam} \
@@ -61,7 +63,7 @@ task assemble {
             ${sample_name}.assembly1-${assembler}.fasta \
             --contigsUntrusted=${sample_name}.assembly1-trinity.fasta \
             ${'--nReads=' + spades_n_reads} \
-     	    ${true='--alwaysSucceed' false='' always_succeed} \
+            ${true='--alwaysSucceed' false='' always_succeed} \
             ${'--minContigLen=' + spades_min_contig_len} \
             --memLimitGb $mem_in_gb \
             --loglevel=DEBUG
@@ -91,19 +93,21 @@ task assemble {
 }
 
 task scaffold {
-    File         contigs_fasta
-    File         reads_bam
-    Array[File]+ reference_genome_fasta
+    input {
+        File         contigs_fasta
+        File         reads_bam
+        Array[File]+ reference_genome_fasta
 
-    String? aligner
-    Float?  min_length_fraction
-    Float?  min_unambig
-    Int?    replace_length=55
+        String? aligner
+        Float?  min_length_fraction
+        Float?  min_unambig
+        Int?    replace_length=55
 
-    Int?    nucmer_max_gap
-    Int?    nucmer_min_match
-    Int?    nucmer_min_cluster
-    Float?    scaffold_min_pct_contig_aligned
+        Int?    nucmer_max_gap
+        Int?    nucmer_min_match
+        Int?    nucmer_min_cluster
+        Float?    scaffold_min_pct_contig_aligned
+    }
 
     # do this in multiple steps in case the input doesn't actually have "assembly1-x" in the name
     String  sample_name = basename(basename(basename(contigs_fasta, ".fasta"), ".assembly1-trinity"), ".assembly1-spades")
@@ -174,15 +178,17 @@ task scaffold {
 }
 
 task refine {
-    File    assembly_fasta
-    File    reads_unmapped_bam
+    input {
+        File    assembly_fasta
+        File    reads_unmapped_bam
 
-    File    gatk_jar
-    File?   novocraft_license
+        File    gatk_jar
+        File?   novocraft_license
 
-    String? novoalign_options="-r Random -l 40 -g 40 -x 20 -t 100"
-    Float?  major_cutoff=0.5
-    Int?    min_coverage=1
+        String? novoalign_options="-r Random -l 40 -g 40 -x 20 -t 100"
+        Float?  major_cutoff=0.5
+        Int?    min_coverage=1
+    }
 
     String  assembly_basename=basename(basename(assembly_fasta, ".fasta"), ".scaffold")
 
@@ -242,21 +248,23 @@ task refine_2x_and_plot {
     # rare for analyses to branch off of intermediate products between
     # these three steps.
     # The more atomic WDL tasks are still available for custom workflows.
-    File    assembly_fasta
-    File    reads_unmapped_bam
+    input {
+        File    assembly_fasta
+        File    reads_unmapped_bam
 
-    File    gatk_jar  # can alternatively be the .tar.bz2
-    File?   novocraft_license
+        File    gatk_jar  # can alternatively be the .tar.bz2
+        File?   novocraft_license
 
-    String? refine1_novoalign_options="-r Random -l 30 -g 40 -x 20 -t 502"
-    Float?  refine1_major_cutoff=0.5
-    Int?    refine1_min_coverage=2
+        String? refine1_novoalign_options="-r Random -l 30 -g 40 -x 20 -t 502"
+        Float?  refine1_major_cutoff=0.5
+        Int?    refine1_min_coverage=2
 
-    String? refine2_novoalign_options="-r Random -l 40 -g 40 -x 20 -t 100"
-    Float?  refine2_major_cutoff=0.5
-    Int?    refine2_min_coverage=3
+        String? refine2_novoalign_options="-r Random -l 40 -g 40 -x 20 -t 100"
+        Float?  refine2_major_cutoff=0.5
+        Int?    refine2_min_coverage=3
 
-    String? plot_coverage_novoalign_options="-r Random -l 40 -g 40 -x 20 -t 100 -k"
+        String? plot_coverage_novoalign_options="-r Random -l 40 -g 40 -x 20 -t 100 -k"
+    }
 
     # do this in two steps in case the input doesn't actually have "cleaned" in the name
     String  sample_name = basename(basename(reads_unmapped_bam, ".bam"), ".cleaned")

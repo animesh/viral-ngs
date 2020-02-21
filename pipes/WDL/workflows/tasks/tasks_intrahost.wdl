@@ -1,12 +1,14 @@
 version 1.0
 
 task isnvs_per_sample {
-  File mapped_bam
-  File assembly_fasta
+  input {
+    File mapped_bam
+    File assembly_fasta
 
-  Int? threads
-  Int? minReadsPerStrand
-  Int? maxBias
+    Int? threads
+    Int? minReadsPerStrand
+    Int? maxBias
+  }
 
   String sample_name = basename(basename(basename(mapped_bam, ".bam"), ".all"), ".mapped")
 
@@ -33,14 +35,16 @@ task isnvs_per_sample {
 
 
 task isnvs_vcf {
-  Array[File] vphaser2Calls # vphaser output; ex. vphaser2.${sample}.txt.gz
-  Array[File] perSegmentMultiAlignments # aligned_##.fasta, where ## is segment number
-  File reference_fasta
+  input {
+    Array[File] vphaser2Calls # vphaser output; ex. vphaser2.${sample}.txt.gz
+    Array[File] perSegmentMultiAlignments # aligned_##.fasta, where ## is segment number
+    File reference_fasta
 
-  Array[String]? snpEffRef # list of accessions to build/find snpEff database
-  Array[String]? sampleNames # list of sample names
-  String? emailAddress # email address passed to NCBI if we need to download reference sequences
-  Boolean naiveFilter=false
+    Array[String]? snpEffRef # list of accessions to build/find snpEff database
+    Array[String]? sampleNames # list of sample names
+    String? emailAddress # email address passed to NCBI if we need to download reference sequences
+    Boolean naiveFilter=false
+  }
 
   command {
     set -ex -o pipefail

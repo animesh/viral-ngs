@@ -7,14 +7,16 @@ import "tasks_assembly.wdl" as assembly
 import "tasks_reports.wdl" as reports
 
 workflow demux_plus {
+    input {
+        File spikein_db
+        File trim_clip_db
+        Array[File]? bmtaggerDbs  # .tar.gz, .tgz, .tar.bz2, .tar.lz4, .fasta, or .fasta.gz
+        Array[File]? blastDbs  # .tar.gz, .tgz, .tar.bz2, .tar.lz4, .fasta, or .fasta.gz
+        Array[File]? bwaDbs
+    }
 
     call demux.illumina_demux as illumina_demux
 
-    File spikein_db
-    File trim_clip_db
-    Array[File]? bmtaggerDbs  # .tar.gz, .tgz, .tar.bz2, .tar.lz4, .fasta, or .fasta.gz
-    Array[File]? blastDbs  # .tar.gz, .tgz, .tar.bz2, .tar.lz4, .fasta, or .fasta.gz
-    Array[File]? bwaDbs
     scatter(raw_reads in illumina_demux.raw_reads_unaligned_bams) {
         call reports.spikein_report as spikein {
             input:

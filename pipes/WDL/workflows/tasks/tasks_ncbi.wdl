@@ -1,9 +1,11 @@
 version 1.0
 
 task download_fasta {
-  String         out_prefix
-  Array[String]+ accessions
-  String         emailAddress
+  input {
+    String         out_prefix
+    Array[String]+ accessions
+    String         emailAddress
+  }
 
   command {
     ncbi.py fetch_fastas \
@@ -26,9 +28,11 @@ task download_fasta {
 }
 
 task download_annotations {
-  Array[String]+ accessions
-  String         emailAddress
-  String         combined_out_prefix
+  input {
+    Array[String]+ accessions
+    String         emailAddress
+    String         combined_out_prefix
+  }
 
   command {
     set -ex -o pipefail
@@ -61,9 +65,11 @@ task download_annotations {
 }
 
 task annot_transfer {
-  Array[File]+ multi_aln_fasta         # fasta; multiple alignments of sample sequences for each chromosome
-  File         reference_fasta         # fasta; all chromosomes in one file
-  Array[File]+ reference_feature_table # tbl; feature table corresponding to each chromosome in the alignment
+  input {
+    Array[File]+ multi_aln_fasta         # fasta; multiple alignments of sample sequences for each chromosome
+    File         reference_fasta         # fasta; all chromosomes in one file
+    Array[File]+ reference_feature_table # tbl; feature table corresponding to each chromosome in the alignment
+  }
 
   Array[Int]   chr_nums=range(length(multi_aln_fasta))
 
@@ -97,16 +103,18 @@ task annot_transfer {
 }
 
 task prepare_genbank {
-  Array[File]+ assemblies_fasta
-  Array[File]  annotations_tbl
-  File         authors_sbt
-  File         biosampleMap
-  File         genbankSourceTable
-  File?        coverage_table # summary.assembly.txt (from Snakemake) -- change this to accept a list of mapped bam files and we can create this table ourselves
-  String       sequencingTech
-  String       comment # TO DO: make this optional
-  String       organism
-  String       molType = "cRNA"
+  input {
+    Array[File]+ assemblies_fasta
+    Array[File]  annotations_tbl
+    File         authors_sbt
+    File         biosampleMap
+    File         genbankSourceTable
+    File?        coverage_table # summary.assembly.txt (from Snakemake) -- change this to accept a list of mapped bam files and we can create this table ourselves
+    String       sequencingTech
+    String       comment # TO DO: make this optional
+    String       organism
+    String       molType = "cRNA"
+  }
 
   command {
     set -ex -o pipefail

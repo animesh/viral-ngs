@@ -5,7 +5,9 @@ import "tasks_assembly.wdl" as assembly
 import "tasks_intrahost.wdl" as intrahost
 
 workflow assemble_denovo_with_isnv_calling {
-    File reads_unmapped_bam
+    input {
+        File reads_unmapped_bam
+    }
 
     call taxon_filter.filter_to_taxon {
         input:

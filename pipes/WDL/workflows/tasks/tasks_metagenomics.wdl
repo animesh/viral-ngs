@@ -1,9 +1,11 @@
 version 1.0
 
 task krakenuniq {
-  Array[File] reads_unmapped_bam
-  File        krakenuniq_db_tar_lz4  # krakenuniq/{database.kdb,taxonomy}
-  File        krona_taxonomy_db_tgz  # taxonomy/taxonomy.tab
+  input {
+    Array[File] reads_unmapped_bam
+    File        krakenuniq_db_tar_lz4  # krakenuniq/{database.kdb,taxonomy}
+    File        krona_taxonomy_db_tgz  # taxonomy/taxonomy.tab
+  }
 
 #  parameter_meta {
 #    krakenuniq_db_tar_lz4:  "stream" # for DNAnexus, until WDL implements the File| type
@@ -76,8 +78,10 @@ task krakenuniq {
 }
 
 task krona {
-  File  classified_reads_txt_gz
-  File  krona_taxonomy_db_tgz
+  input {
+    File  classified_reads_txt_gz
+    File  krona_taxonomy_db_tgz
+  }
 
   String input_basename = basename(classified_reads_txt_gz, ".txt.gz")
 
@@ -115,12 +119,14 @@ task krona {
 }
 
 task filter_bam_to_taxa {
-  File classified_bam
-  File classified_reads_txt_gz
-  File ncbi_taxonomy_db_tgz # nodes.dmp names.dmp
-  Array[String]? taxonomic_names
-  Array[Int]? taxonomic_ids
-  Boolean? withoutChildren=false
+  input {
+    File classified_bam
+    File classified_reads_txt_gz
+    File ncbi_taxonomy_db_tgz # nodes.dmp names.dmp
+    Array[String]? taxonomic_names
+    Array[Int]? taxonomic_ids
+    Boolean? withoutChildren=false
+  }
 
   String input_basename = basename(classified_bam, ".bam")
 
@@ -174,10 +180,12 @@ task filter_bam_to_taxa {
 }
 
 task kaiju {
-  File  reads_unmapped_bam
-  File  kaiju_db_lz4  # <something>.fmi
-  File  ncbi_taxonomy_db_tgz # taxonomy/{nodes.dmp, names.dmp}
-  File  krona_taxonomy_db_tgz  # taxonomy/taxonomy.tab
+  input {
+    File  reads_unmapped_bam
+    File  kaiju_db_lz4  # <something>.fmi
+    File  ncbi_taxonomy_db_tgz # taxonomy/{nodes.dmp, names.dmp}
+    File  krona_taxonomy_db_tgz  # taxonomy/taxonomy.tab
+  }
 
   String input_basename = basename(reads_unmapped_bam, ".bam")
 

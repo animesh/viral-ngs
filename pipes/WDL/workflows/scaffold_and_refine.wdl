@@ -3,7 +3,9 @@ version 1.0
 import "tasks_assembly.wdl" as assembly
 
 workflow scaffold_and_refine {
-    File reads_unmapped_bam
+    input {
+        File reads_unmapped_bam
+    }
 
     call assembly.scaffold {
         input:

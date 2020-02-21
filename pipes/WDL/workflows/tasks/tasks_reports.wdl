@@ -4,19 +4,21 @@ task plot_coverage {
   # TO DO: add a BWA option
   # TO DO: make GATK indel-realigner optional
 
-  File assembly_fasta
-  File reads_unmapped_bam
+  input {
+    File assembly_fasta
+    File reads_unmapped_bam
 
-  File gatk_jar
-  File? novocraft_license
+    File gatk_jar
+    File? novocraft_license
 
-  String? aligner="novoalign" # novoalign or bwa
-  String? aligner_options="-r Random -l 40 -g 40 -x 20 -t 100 -k"
+    String? aligner="novoalign" # novoalign or bwa
+    String? aligner_options="-r Random -l 40 -g 40 -x 20 -t 100 -k"
 
-  Boolean? skip_mark_dupes=false
-  Boolean? plot_only_non_duplicates=false
-  Boolean? bin_large_plots=false
-  String? binning_summary_statistic="max" # max or min
+    Boolean? skip_mark_dupes=false
+    Boolean? plot_only_non_duplicates=false
+    Boolean? bin_large_plots=false
+    String? binning_summary_statistic="max" # max or min
+  }
   
   String sample_name = basename(basename(basename(reads_unmapped_bam, ".bam"), ".taxfilt"), ".clean")
 
@@ -119,9 +121,11 @@ task plot_coverage {
 
 
 task coverage_report {
-  Array[File]+ mapped_bams
-  Array[File]  mapped_bam_idx # optional.. speeds it up if you provide it, otherwise we auto-index
-  String       out_report_name="coverage_report.txt"
+  input {
+    Array[File]+ mapped_bams
+    Array[File]  mapped_bam_idx # optional.. speeds it up if you provide it, otherwise we auto-index
+    String       out_report_name="coverage_report.txt"
+  }
 
   command {
     reports.py coverage_only \
@@ -144,7 +148,9 @@ task coverage_report {
 
 
 task fastqc {
-  File reads_bam
+  input {
+    File reads_bam
+  }
 
   String reads_basename=basename(reads_bam, ".bam")
 
@@ -168,10 +174,12 @@ task fastqc {
 
 
 task spikein_report {
-  File  reads_bam
-  File  spikein_db
-  Int?  minScoreToFilter = 60
-  Int?  topNHits = 3
+  input  {
+    File  reads_bam
+    File  spikein_db
+    Int?  minScoreToFilter = 60
+    Int?  topNHits = 3
+  }
 
   String reads_basename=basename(reads_bam, ".bam")
 
@@ -205,7 +213,9 @@ task spikein_report {
 }
 
 task spikein_summary {
-  Array[File]+  spikein_count_txt
+  input {
+    Array[File]+  spikein_count_txt
+  }
 
   command {
     set -ex -o pipefail
@@ -231,10 +241,12 @@ task spikein_summary {
 }
 
 task aggregate_metagenomics_reports {
-  Array[File]+ kraken_summary_reports 
-  String     aggregate_taxon_heading_space_separated  = "Viruses" # The taxonomic heading to analyze. More than one can be specified.
-  String     aggregate_taxlevel_focus                 = "species" # species,genus,family,order,class,phylum,kingdom,superkingdom
-  Int?       aggregate_top_N_hits                     = 5 # only include the top N hits from a given sample in the aggregte report
+  input {
+    Array[File]+ kraken_summary_reports 
+    String     aggregate_taxon_heading_space_separated  = "Viruses" # The taxonomic heading to analyze. More than one can be specified.
+    String     aggregate_taxlevel_focus                 = "species" # species,genus,family,order,class,phylum,kingdom,superkingdom
+    Int?       aggregate_top_N_hits                     = 5 # only include the top N hits from a given sample in the aggregte report
+  }
 
   String aggregate_taxon_heading = sub(aggregate_taxon_heading_space_separated, " ", "_") # replace spaces with underscores for use in filename
   
@@ -265,22 +277,24 @@ task aggregate_metagenomics_reports {
 }
 
 task assembly_optimality_report {
-  File  taxon_refs_fasta
+  input {
+    File  taxon_refs_fasta
 
-  File? raw_reads_bam
-  File? cleaned_reads_bam
-  File? taxfilt_reads_bam
+    File? raw_reads_bam
+    File? cleaned_reads_bam
+    File? taxfilt_reads_bam
 
-  File? subsamp_reads_bam
-  File? contigs_fasta
+    File? subsamp_reads_bam
+    File? contigs_fasta
 
-  File? scaffold_fasta
-  File? intermediate_scaffold_fasta
+    File? scaffold_fasta
+    File? intermediate_scaffold_fasta
 
-  File? refine1_assembly_fasta
-  File  final_assembly_fasta
+    File? refine1_assembly_fasta
+    File  final_assembly_fasta
 
-  Int?  kmer_size=25
+    Int?  kmer_size=25
+  }
 
   String assembly_basename=basename(final_assembly_fasta, ".fasta")
 

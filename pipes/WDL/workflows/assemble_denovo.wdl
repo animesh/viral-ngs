@@ -5,10 +5,12 @@ import "tasks_assembly.wdl" as assembly
 import "tasks_reports.wdl" as reports
 
 workflow assemble_denovo {
-  
-  File reads_unmapped_bam
-  File   lastal_db_fasta
-  Boolean run_optimality_report = false
+
+  input {
+    File reads_unmapped_bam
+    File   lastal_db_fasta
+    Boolean run_optimality_report = false
+  }
 
   call taxon_filter.filter_to_taxon {
     input:

@@ -1,12 +1,14 @@
 version 1.0
 
 task multi_align_mafft_ref {
-  File           reference_fasta
-  Array[File]+   assemblies_fasta # fasta files, one per sample, multiple chrs per file okay
-  String         fasta_basename = basename(reference_fasta, '.fasta')
-  Int?           mafft_maxIters
-  Float?         mafft_ep
-  Float?         mafft_gapOpeningPenalty
+  input {
+    File           reference_fasta
+    Array[File]+   assemblies_fasta # fasta files, one per sample, multiple chrs per file okay
+    String         fasta_basename = basename(reference_fasta, '.fasta')
+    Int?           mafft_maxIters
+    Float?         mafft_ep
+    Float?         mafft_gapOpeningPenalty
+  }
 
   command {
     interhost.py multichr_mafft \
@@ -37,11 +39,13 @@ task multi_align_mafft_ref {
 }
 
 task multi_align_mafft {
-  Array[File]+   assemblies_fasta # fasta files, one per sample, multiple chrs per file okay
-  String         out_prefix = "aligned"
-  Int?           mafft_maxIters
-  Float?         mafft_ep
-  Float?         mafft_gapOpeningPenalty
+  input {
+    Array[File]+   assemblies_fasta # fasta files, one per sample, multiple chrs per file okay
+    String         out_prefix = "aligned"
+    Int?           mafft_maxIters
+    Float?         mafft_ep
+    Float?         mafft_gapOpeningPenalty
+  }
 
   command {
     interhost.py multichr_mafft \
@@ -72,7 +76,9 @@ task multi_align_mafft {
 }
 
 task index_ref {
-  File referenceGenome
+  input {
+    File referenceGenome
+  }
 
   command {
     read_utils.py novoindex "${referenceGenome}"

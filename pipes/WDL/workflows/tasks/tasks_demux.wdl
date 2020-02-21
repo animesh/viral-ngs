@@ -30,25 +30,26 @@ version 1.0
 
 task illumina_demux {
 
-  File    flowcell_tgz
-  Int?    lane=1
-  File?   samplesheet
-  File?   runinfo
-  String? sequencingCenter
+  input {
+    File    flowcell_tgz
+    Int?    lane=1
+    File?   samplesheet
+    File?   runinfo
+    String? sequencingCenter
 
-  String? flowcell
-  Int?    minimumBaseQuality = 25
-  Int?    maxMismatches = 0
-  Int?    minMismatchDelta
-  Int?    maxNoCalls
-  String? readStructure
-  Int?    minimumQuality = 10
-  Int?    threads = 30
-  String? runStartDate
-  Int?    maxReadsInRamPerTile
-  Int?    maxRecordsInRam
-  Boolean? forceGC=true
-
+    String? flowcell
+    Int?    minimumBaseQuality = 25
+    Int?    maxMismatches = 0
+    Int?    minMismatchDelta
+    Int?    maxNoCalls
+    String? readStructure
+    Int?    minimumQuality = 10
+    Int?    threads = 30
+    String? runStartDate
+    Int?    maxReadsInRamPerTile
+    Int?    maxRecordsInRam
+    Boolean? forceGC=true
+  }
 
 #  parameter_meta {
 #    flowcell_tgz : "stream" # for DNAnexus, until WDL implements the File| type
@@ -208,9 +209,11 @@ task illumina_demux {
 }
 
 task merge_and_reheader_bams {
-  Array[File]+  in_bams
-  File?         reheader_table # tsv with 3 cols: field, old value, new value
-  String        out_basename
+  input {
+    Array[File]+  in_bams
+    File?         reheader_table # tsv with 3 cols: field, old value, new value
+    String        out_basename
+  }
 
   command {
     set -ex -o pipefail
@@ -219,7 +222,7 @@ task merge_and_reheader_bams {
       read_utils.py merge_bams ${sep=' ' in_bams} merged.bam --loglevel DEBUG
     else
       echo "Skipping merge, only one input file"
-      ln -s ${select_first(in_bams)} merged.bam
+      ln -s ${in_bams[0]} merged.bam
     fi    
 
     if [[ -f "${reheader_table}" ]]; then

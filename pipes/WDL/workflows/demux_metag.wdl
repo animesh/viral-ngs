@@ -39,8 +39,10 @@ workflow demux_metag {
       input:
           spikein_count_txt = spikein.report
   }
-  call metagenomics.kaiju as kaiju {
-    input:
-      reads_unmapped_bam = illumina_demux.raw_reads_unaligned_bams,
+  scatter(raw_reads in illumina_demux.raw_reads_unaligned_bams) {
+    call metagenomics.kaiju as kaiju {
+      input:
+        reads_unmapped_bam = raw_reads
+    }
   }
 }

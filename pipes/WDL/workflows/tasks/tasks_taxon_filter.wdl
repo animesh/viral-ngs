@@ -5,13 +5,15 @@ version 1.0
 #   Runs a full human read depletion pipeline and removes PCR duplicates
 # ======================================================================
 task deplete_taxa {
-  File         raw_reads_unmapped_bam
-  Array[File]? bmtaggerDbs  # .tar.gz, .tgz, .tar.bz2, .tar.lz4, .fasta, or .fasta.gz
-  Array[File]? blastDbs  # .tar.gz, .tgz, .tar.bz2, .tar.lz4, .fasta, or .fasta.gz
-  Array[File]? bwaDbs  # .tar.gz, .tgz, .tar.bz2, .tar.lz4, .fasta, or .fasta.gz
-  Int?         query_chunk_size
-  Boolean?     clear_tags = false
-  String? tags_to_clear_space_separated = "XT X0 X1 XA AM SM BQ CT XN OC OP"
+  input {
+    File         raw_reads_unmapped_bam
+    Array[File]? bmtaggerDbs  # .tar.gz, .tgz, .tar.bz2, .tar.lz4, .fasta, or .fasta.gz
+    Array[File]? blastDbs  # .tar.gz, .tgz, .tar.bz2, .tar.lz4, .fasta, or .fasta.gz
+    Array[File]? bwaDbs  # .tar.gz, .tgz, .tar.bz2, .tar.lz4, .fasta, or .fasta.gz
+    Int?         query_chunk_size
+    Boolean?     clear_tags = false
+    String? tags_to_clear_space_separated = "XT X0 X1 XA AM SM BQ CT XN OC OP"
+  }
 
   String      bam_basename = basename(raw_reads_unmapped_bam, ".bam")
 
@@ -84,11 +86,13 @@ task deplete_taxa {
 #   level or greater for the virus of interest)
 # ======================================================================
 task filter_to_taxon {
-  File     reads_unmapped_bam
-  File     lastal_db_fasta
-  Boolean? error_on_reads_in_neg_control = false
-  Int? negative_control_reads_threshold = 0
-  String? neg_control_prefixes_space_separated = "neg water NTC"
+  input {
+    File     reads_unmapped_bam
+    File     lastal_db_fasta
+    Boolean? error_on_reads_in_neg_control = false
+    Int? negative_control_reads_threshold = 0
+    String? neg_control_prefixes_space_separated = "neg water NTC"
+  }
 
   # do this in two steps in case the input doesn't actually have "cleaned" in the name
   String bam_basename = basename(basename(reads_unmapped_bam, ".bam"), ".cleaned")
@@ -136,7 +140,9 @@ task filter_to_taxon {
 }
 
 task build_lastal_db {
-  File    sequences_fasta
+  input {
+    File    sequences_fasta
+  }
   String  db_name = basename(sequences_fasta, ".fasta")
 
   command {
@@ -159,9 +165,11 @@ task build_lastal_db {
 }
 
 task merge_one_per_sample {
-  String       out_bam_basename
-  Array[File]+ inputBams
-  Boolean?     rmdup=false
+  input {
+    String       out_bam_basename
+    Array[File]+ inputBams
+    Boolean?     rmdup=false
+  }
 
   command {
     set -ex -o pipefail
@@ -198,5 +206,3 @@ task merge_one_per_sample {
     dx_instance_type: "mem1_ssd1_v2_x16"
   }
 }
-
-
