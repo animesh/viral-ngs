@@ -1,3 +1,5 @@
+version 1.0
+
 import "tasks_metagenomics.wdl" as metagenomics
 import "tasks_taxon_filter.wdl" as taxon_filter
 import "tasks_assembly.wdl" as assembly

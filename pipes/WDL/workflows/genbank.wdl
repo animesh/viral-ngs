@@ -1,3 +1,5 @@
+version 1.0
+
 import "tasks_interhost.wdl" as interhost
 import "tasks_ncbi.wdl" as ncbi
 

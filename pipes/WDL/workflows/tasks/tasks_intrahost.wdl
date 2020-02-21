@@ -1,3 +1,4 @@
+version 1.0
 
 task isnvs_per_sample {
   File mapped_bam

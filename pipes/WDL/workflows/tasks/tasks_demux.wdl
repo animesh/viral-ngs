@@ -1,3 +1,4 @@
+version 1.0
 
 #task merge_tar_chunks {
 #  Array[File]+  tar_chunks

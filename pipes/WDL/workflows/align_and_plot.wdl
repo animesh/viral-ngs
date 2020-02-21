@@ -1,3 +1,5 @@
+version 1.0
+
 import "tasks_reports.wdl" as reports
 
 workflow align_and_plot {

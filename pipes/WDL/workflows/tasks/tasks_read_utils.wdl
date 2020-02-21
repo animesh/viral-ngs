@@ -1,3 +1,4 @@
+version 1.0
 
 task downsample_bams {
   Array[File]  reads_bam

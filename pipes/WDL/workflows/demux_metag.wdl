@@ -1,3 +1,5 @@
+version 1.0
+
 #DX_SKIP_WORKFLOW
 
 import "tasks_demux.wdl" as demux

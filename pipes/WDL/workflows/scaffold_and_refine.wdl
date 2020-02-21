@@ -1,3 +1,5 @@
+version 1.0
+
 import "tasks_assembly.wdl" as assembly
 
 workflow scaffold_and_refine {

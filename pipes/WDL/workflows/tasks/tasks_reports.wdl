@@ -1,3 +1,4 @@
+version 1.0
 
 task plot_coverage {
   # TO DO: add a BWA option

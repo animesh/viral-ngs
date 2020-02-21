@@ -1,3 +1,5 @@
+version 1.0
+
 import "tasks_taxon_filter.wdl" as taxon_filter
 import "tasks_assembly.wdl" as assembly
 import "tasks_intrahost.wdl" as intrahost

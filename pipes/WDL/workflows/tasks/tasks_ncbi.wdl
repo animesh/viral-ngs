@@ -1,3 +1,4 @@
+version 1.0
 
 task download_fasta {
   String         out_prefix

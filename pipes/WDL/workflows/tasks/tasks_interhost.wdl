@@ -1,3 +1,4 @@
+version 1.0
 
 task multi_align_mafft_ref {
   File           reference_fasta

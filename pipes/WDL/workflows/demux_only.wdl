@@ -1,3 +1,5 @@
+version 1.0
+
 import "tasks_demux.wdl" as tasks_demux
 
 workflow demux_only {

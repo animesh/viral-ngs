@@ -1,3 +1,5 @@
+version 1.0
+
 import "tasks_demux.wdl" as demux
 
 workflow merge_bams {

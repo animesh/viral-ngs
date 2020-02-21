@@ -1,3 +1,5 @@
+version 1.0
+
 import "tasks_metagenomics.wdl" as metagenomics
 import "tasks_reports.wdl" as reports
 
