@@ -317,7 +317,7 @@ task assembly_optimality_report {
 
   output {
     File taxon_kmer_metrics_json = "${assembly_basename}.taxon_kmer_metrics.json"
-    Object taxon_kmer_metrics = read_json("${assembly_basename}.taxon_kmer_metrics.json")
+    Map[String,Map[String,Int]] taxon_kmer_metrics = read_json("${assembly_basename}.taxon_kmer_metrics.json")
     String viralngs_version = "viral-ngs_version_unknown"
   }
 
