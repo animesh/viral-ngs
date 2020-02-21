@@ -36,7 +36,7 @@ workflow assemble_denovo {
   }
 
   if (run_optimality_report) {
-    call reports.assembly_optimality_report {
+    call reports.produce_assembly_optimality_report {
       input:
         taxon_refs_fasta = lastal_db_fasta,
 

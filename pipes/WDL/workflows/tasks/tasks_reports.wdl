@@ -276,7 +276,7 @@ task aggregate_metagenomics_reports {
   }
 }
 
-task assembly_optimality_report {
+task produce_assembly_optimality_report {
   input {
     File  taxon_refs_fasta
 
