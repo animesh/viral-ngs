@@ -861,9 +861,10 @@ def _import_dx_analysis_and_commit(dx_analysis_id, analysis_dir_pfx, defaults_fr
     util.file.mkdir_p(os.path.dirname(log_fname))
     try:
         with open(log_fname + '.out.txt', 'wt') as _out_stdout, open(log_fname + '.err.txt', 'wt') as _out_stderr:
-            _run(script, 'import_one_dx_analysis', '--analysisDirPfx', analysis_dir_pfx,
-                 '--defaultsFromAnalysisDir', defaults_from_analysis_dir,
-                 dx_analysis_id, cwd=temp_worktree_dir, stdout=_out_stdout, stderr=_out_stderr)
+            args = (script, 'import_one_dx_analysis', '--analysisDirPfx', analysis_dir_pfx) + \
+                (('--defaultsFromAnalysisDir', defaults_from_analysis_dir) if defaults_from_analysis_dir else ()) + \
+                (dx_analysis_id,)
+            _run(*args, cwd=temp_worktree_dir, stdout=_out_stdout, stderr=_out_stderr)
     finally:
         _run('git', 'annex', 'add', '--include-dotfiles', '.', cwd=temp_worktree_dir)
         _run('git', 'commit', '-m', 'imported dx analysis {}'.format(dx_analysis_id), cwd=temp_worktree_dir)
