@@ -183,6 +183,8 @@ class DxTool(tools.Tool):
             else:
                 dxid = link['id']
             return {'$dnanexus_link': dxid}
+        elif (_is_str(link) and  link.startswith('workflow-')):
+            return link
         raise RuntimeError('Unknown $dnanexus_link: {}'.format(val))
 
     @staticmethod
