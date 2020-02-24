@@ -73,6 +73,7 @@ __commands__.append(('merge_tarballs', parser_merge_tarballs))
 def _json_to_org(val, org_file, depth=1, heading='root', title=None, json_file=None):
     """Transform a parsed json structure to an Org mode outliner file (see https://orgmode.org/ ).
     """
+    log.info('Loaded json, writing org...')
     with open(org_file, 'w') as out:
         if title:
             out.write('#+TITLE: {}\n\n'.format(title))
@@ -102,16 +103,17 @@ def _json_to_org(val, org_file, depth=1, heading='root', title=None, json_file=N
         _recurse(val=val, heading=heading, depth=depth)
 # end: def _json_to_org(val, org_file, depth=1, heading='root')
 
-def json_to_org(json_fname, org_fname=None):
+def json_to_org(json_fname, org_fname=None, maxSizeMb=50):
     """Transform a parsed json structure to an Org mode outliner file (see https://orgmode.org/ ).
     """
     org_fname = org_fname or util.file.replace_ext(json_fname, '.org')
-    _json_to_org(val=util.misc.json_loadf(json_fname), org_file=org_fname, json_file=json_fname)
+    _json_to_org(val=util.misc.json_loadf(json_fname, maxSizeMb=maxSizeMb), org_file=org_fname, json_file=json_fname)
 
 def parser_json_to_org(parser=argparse.ArgumentParser()):
     parser.add_argument('json_fname', help='json file to import')
     parser.add_argument('org_fname', help='org file to output; if omitted, defaults to json_fname with .json replaced by .org',
                         nargs='?')
+    parser.add_argument('--maxSizeMb', type=int, default=50, help='max size of file to handle')
     util.cmd.attach_main(parser, json_to_org, split_args=True)
     return parser
 

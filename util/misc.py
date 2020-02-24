@@ -934,9 +934,9 @@ def json_loads(s):
     """Load json from a string, canonicalizing order of fields within records."""
     return json.loads(s.strip(), object_hook=_load_dict_sorted, object_pairs_hook=collections.OrderedDict)
 
-def json_loadf(fname):
+def json_loadf(fname, maxSizeMb=50):
     """Load json from a filename."""
-    return json_loads(util.file.slurp_file(fname))
+    return json_loads(util.file.slurp_file(fname, maxSizeMb=maxSizeMb))
 
 def _kill_proc_tree(pid, sig=signal.SIGTERM, include_parent=True,
                    timeout=None, on_terminate=None):
