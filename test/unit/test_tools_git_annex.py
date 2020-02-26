@@ -46,6 +46,7 @@ def git_annex_repo(ga_tool, tmpdir_module):
                 ga_tool.initremote_external(remote_name='dnanexus_remote', externaltype='dnanexus')
             ga_tool.execute_git(['config', 'annex.backend', 'MD5E'])
             ga_tool.execute_git(['config', '--type=int', 'annex.maxextensionlength', '5'])
+            ga_tool.execute_git(['config', '--type=bool', 'annex.gitaddtoannex', 'false'])
             yield os.getcwd()
 
 @pytest.fixture(scope='module')
