@@ -235,6 +235,10 @@ class JmesPathCustomFunctions(jmespath.functions.Functions):
 
     """Custom functions for use in jmespath queries"""
 
+    def __init__(self, load_files_base):
+        super(JmesPathCustomFunctions, self).__init__()
+        self.load_files_base = load_files_base
+
     @jmespath.functions.signature({'types': ['string']}, {'types': ['string']}, {'types': ['string']})
     def _func_re_sub(self, pattern, repl, s):
         """Substitute a regexp in a string"""
@@ -253,14 +257,19 @@ class JmesPathCustomFunctions(jmespath.functions.Functions):
         """Replace a string in all keys of an object"""
         return { k.replace(patt, repl): v for k, v in obj.items()}
 
+    @jmespath.functions.signature({'types': ['string']})
+    def _func_load_json(self, fname):
+        """Substitute a regexp in a string"""
+        return _json_loadf(os.path.join(self.load_files_base, fname))
+
 # end: class JmesPathCustomFunctions(jmespath.functions.Functions)
 
-def _qry_json(json_data, jmespath_expr, dflt=None):
+def _qry_json(json_data, jmespath_expr, dflt=None, load_files_base=None):
     """Return the result of a jmespath query `jmespath_expr` on `json_data`,
     or `dflt` if the query returns None."""
     res =  jmespath.search(jmespath_expr, json_data,
                            jmespath.Options(dict_cls=collections.OrderedDict,
-                                            custom_functions=JmesPathCustomFunctions()))
+                                            custom_functions=JmesPathCustomFunctions(load_files_base=load_files_base)))
     return res if res is not None else dflt
 
 # **** json I/O
@@ -1956,7 +1965,7 @@ def _generate_benchmark_variant(benchmarks_spec_dir, benchmark_dir, benchmark_va
                                         'metadata_with_gitlinks.json')) else {}
     _log.info('CALLING QRY: def=%s', benchmark_variant_def)
     run_inputs = _qry_json(json_data=dict(run_inputs=run_inputs, metadata=metadata),
-                           jmespath_expr=benchmark_variant_def)
+                           jmespath_expr=benchmark_variant_def, load_files_base=analysis_dir)
     _log.info('RETURNED FROM QRY: def=%s run_inputs=%s', benchmark_variant_def, run_inputs)
     _prepare_analysis_crogit_do(inputs=run_inputs, analysis_dir=analysis_dir, analysis_labels={}, git_annex_tool=git_annex_tool,
                                 copy_to=copy_to)
