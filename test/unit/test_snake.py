@@ -90,7 +90,7 @@ def workdir(request, tmpdir_function):
 def call_snakemake(workdir, targets=None):
     return snakemake.snakemake(
         os.path.join(workdir, 'Snakefile'),
-        configfile=os.path.join(workdir, 'config.yaml'),
+        configfiles=[os.path.join(workdir, 'config.yaml')],
         workdir=workdir,
         dryrun=True,
         targets=targets)
