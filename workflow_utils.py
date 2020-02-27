@@ -3835,11 +3835,11 @@ def diff_analyses_html(benchmark_dir, variants, key_prefixes=(), cgi=False):
                                             txt(_get_diff(vals, float))
                                         elif key_str == 'labels.docker_img' and len(vals) == 2:
                                             def _docker_tag_to_git_tag(docker_tag):
-                                                git_tag_re = 'quay.io/broadinstitute/viral-ngs-dev:\d+\.\d+\.\d+-\d+-g' \
+                                                git_tag_re = r'quay.io/broadinstitute/viral-ngs-dev:\d+\.\d+\.\d+-\d+-g' \
                                                     '([0-9a-z]{7})-[0-9a-z.-]+'
                                                 m = re.fullmatch(git_tag_re, docker_tag)
                                                 if m: return m.group(1)
-                                                git_tag_re = 'quay.io/broadinstitute/viral-ngs:(\d+\.\d+\.\d+)'
+                                                git_tag_re = r'quay.io/broadinstitute/viral-ngs:(\d+\.\d+\.\d+)'
                                                 m = re.fullmatch(git_tag_re, docker_tag)
                                                 if m: return 'v'+m.group(1)
 
