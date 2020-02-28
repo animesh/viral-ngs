@@ -771,8 +771,8 @@ def maybe_decode(s):
     return s.decode() if hasattr(s, 'decode') else s
 
 def transform_json_data(val, node_handler, path=()):
-    """Transform a parsed json structure, by replacing nodes for which `node_handler` returns
-    an object different from `val`, with that object.  If `node_handler` has a named arg `path`,
+    """Transform a parsed json structure `val`, by replacing nodes for which `node_handler`(v) returns
+    an object different from `v`, with that object.  If `node_handler` has a named arg `path`,
     the path from the root will be passed via that arg (as a tuple).  If `node_handler` has a named
     arg `is_leaf`, it will set to True when node_handler is called for a leaf, to False otherwise.
     """
@@ -798,7 +798,8 @@ def transform_json_data(val, node_handler, path=()):
 # end: def transform_json_data(val, node_handler, path=())
 
 def json_gather_leaf_jpaths(json_data):
-    """Construct a map which for each leaf maps its jpath to the leaf value"""
+    """Construct a map which for each leaf maps its jpath (tuple of node values from root of parsed json structure to the leaf)
+    to the leaf value"""
     jpath2leaf = collections.OrderedDict()
     def save_leaf_path(val, path, is_leaf):
         if not is_leaf: 
