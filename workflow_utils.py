@@ -670,6 +670,22 @@ def _determine_dx_analysis_docker_img(dnanexus_tool, mdata):
 #         _run('zip imports.zip *.wdl')
 #         workflow_inputs_spec = _get_workflow_inputs_spec(workflow_name, docker_img=docker_img_hash)
 
+def _do_resolve_links_in_json_data(mdata, rel_to_dir, git_annex_tool=None, now=True, relpath='files'):
+    if git_annex_tool is None:
+        git_annex_tool = tools.git_annex.GitAnnexTool()
+    with git_annex_tool.batching() as git_annex_tool:
+        leaf_jpaths = util.misc.json_gather_leaf_jpaths(mdata)
+        str_leaves = list(filter(_is_str, util.misc.map_vals(leaf_jpaths)))
+        git_annex_tool.import_urls(str_leaves, ignore_non_urls=True, now=now)
+        mdata_rel = _resolve_links_in_json_data(val=mdata, rel_to_dir=rel_to_dir,
+                                                methods=[functools.partial(_resolve_link_using_gathered_filestat,
+                                                                           git_annex_tool=git_annex_tool),
+                                                ], relpath=relpath)
+    mdata_rel = util.misc.transform_json_data(mdata_rel, functools.partial(util.misc.maybe_wait_for_result, timeout=300))
+        
+    return mdata_rel
+
+
 # ** import_dx_analysis impl
 
 def _import_dx_analysis(dx_analysis_id, analysis_dir_pfx, defaults_from_analysis_dir, git_annex_tool, dnanexus_tool):
