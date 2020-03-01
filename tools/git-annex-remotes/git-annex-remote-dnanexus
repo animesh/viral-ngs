@@ -8,34 +8,16 @@ import sys
 import os
 import os.path
 
+import dxpy
+import dxpy.bindings
+import dxpy.bindings.dxfile_functions
+import dxpy.bindings.dxdataobject_functions
 from annexremote import Master
 from annexremote import SpecialRemote
 from annexremote import RemoteError
 from annexremote import UnsupportedRequest
 
-#Now create your special remote class. It must subtype ``SpecialRemote`` and implement at least the 6 basic methods:
-
 DX_URI_PFX='dx://'
-
-def _msg(*args):
-    print(*args, file=sys.stderr)
-
-def _run(cmd):
-    _msg('running command: ', cmd, 'cwd=', os.getcwd())
-    beg_time = time.time()
-    subprocess.check_call(cmd, shell=True)
-    _msg('command succeeded in {}s: {}'.format(time.time()-beg_time, cmd))
-
-def _run_get_output(cmd):
-    _msg('running command: ', cmd)
-    beg_time = time.time()
-    output = subprocess.check_output(cmd, shell=True)
-    _msg('command succeeded in {}s: {}'.format(time.time()-beg_time, cmd))
-    return output
-
-def _run_get_json(cmd):
-    return json.loads(_run_get_output(cmd).strip())
-
 
 class DNAnexusRemote(SpecialRemote):
     def initremote(self):
@@ -68,9 +50,9 @@ class DNAnexusRemote(SpecialRemote):
         try:
             cmd = 'dx download --no-progress ' + self._url_to_dxid(url) + " -f -o '" + filename + "'"
             self._dbg('cmd=', cmd)
-            _run(cmd)
-        except subprocess.CalledProcessError:
-            raise RemoteError('transfer_retrieve: Error running dx download cmd {}'.format(cmd))
+            dxpy.bindings.dxfile_functions.download_dxfile(dxid=self._url_to_dxid(url), filename=filename)
+        except Exception as dx_exc:
+            raise RemoteError('transfer_retrieve: Error running dx download cmd {}: {}'.format(cmd, dx_exc))
 
     def checkpresent(self, key):
         # return True if the key is present in the remote
@@ -97,9 +79,9 @@ class DNAnexusRemote(SpecialRemote):
     def checkurl(self, url):
         if not self.claimurl(url): raise RemoteError('Cannot check non-dx URL {}'.format(url))
         try:
-            descr = _run_get_json('dx describe --json ' + self._url_to_dxid(url))
-        except subprocess.CalledProcessError:
-            raise RemoteError('Could not run dx describe')
+            descr = dxpy.bindings.dxdataobject_functions.describe(self._url_to_dxid(url))
+        except Exception as describe_exc:
+            raise RemoteError('Could not run dx describe for {}: {}'.format(url, describe_exc))
         url_ext = os.path.splitext(url)[1]
         file_ext = os.path.splitext(descr['name'])[1]
         if url.endswith('/'):
@@ -111,9 +93,7 @@ class DNAnexusRemote(SpecialRemote):
             return [dict(size=descr['size'], filename=descr['name'],
                          url=url+file_ext)]
 
-    
-    
-
+# end: class DNAnexusRemote(SpecialRemote)
 
 # In your ``main`` function, link your remote to the master class and initialize the protocol:
 
