@@ -302,7 +302,7 @@ task produce_assembly_optimality_report {
     set -ex -o pipefail
     reports.py assembly_optimality_report \
       ${taxon_refs_fasta} \
-      ${'--stage 05_raw_reads' + raw_reads_bam} \
+      ${'--stage 05_raw_reads ' + raw_reads_bam} \
       ${'--stage 10_cleaned_reads ' + cleaned_reads_bam} \
       ${'--stage 20_taxfilt_reads ' + taxfilt_reads_bam} \
       ${'--stage 25_subsamp_reads ' + subsamp_reads_bam} \
