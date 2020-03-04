@@ -443,7 +443,6 @@ class TestGap2Seq(TestCaseWithTmp):
             assembly.gapfill_gap2seq(in_scaffold=in_scaffold,
                                      in_bam=join(inDir, 'G5012.3.testreads.bam'),
                                      out_scaffold=filled, random_seed=23923937, threads=1)
-            shutil.copyfile(filled, '/tmp/filled.fasta')
             self.assertEqualContents(filled, join(inDir, 'TestGap2Seq', 'expected.ebov.doublehit.gapfill.fasta'))
 
 
