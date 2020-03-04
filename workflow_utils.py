@@ -531,7 +531,7 @@ def _git_annex_get(f):
     assert os.path.isfile(f)
 
 def _git_annex_add(f):
-    _run('git', 'annex', 'add', '--include-dotfiles', f)
+    _run('git', 'annex', 'add', f)
 
 def _git_annex_get_metadata(key, field):
     ga_mdata = _run_get_json('git', 'annex', 'metadata', '--json', '--key='+key)
@@ -891,7 +891,7 @@ def _import_dx_analysis_and_commit(dx_analysis_id, analysis_dir_pfx, defaults_fr
                 (dx_analysis_id,)
             _run(*args, cwd=temp_worktree_dir, stdout=_out_stdout, stderr=_out_stderr)
     finally:
-        _run('git', 'annex', 'add', '--include-dotfiles', '.', cwd=temp_worktree_dir)
+        _run('git', 'annex', 'add', '.', cwd=temp_worktree_dir)
         _run('git', 'commit', '-m', 'imported dx analysis {}'.format(dx_analysis_id), cwd=temp_worktree_dir)
 
 def _set_up_worktree(dx_analysis_id, exit_stack, git_annex_tool, worktree_group_id):
@@ -2053,7 +2053,7 @@ def _generate_one_benchmark_variant_and_commit(benchmarks_spec_file, one_benchma
             _run(script, 'generate_benchmark_variant_dirs', benchmarks_spec_file, '--oneBenchmarkDir', one_benchmark_dir,
                  '--oneBenchmarkVariant', one_benchmark_variant, cwd=temp_worktree_dir, stdout=_out_stdout, stderr=_out_stderr)
     finally:
-        _run('git', 'annex', 'add', '--include-dotfiles', '.', cwd=temp_worktree_dir)
+        _run('git', 'annex', 'add', '.', cwd=temp_worktree_dir)
         _run('git', 'commit', '-m', 'generated benchmark variant {} {}'.format(one_benchmark_dir, one_benchmark_variant),
              cwd=temp_worktree_dir)
 

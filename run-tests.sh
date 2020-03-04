@@ -2,8 +2,8 @@
 
 set -e -o pipefail
 
-#PYTHONPATH=$PWD PATH=$PWD/tools/git-annex-remotes:$PATH py.test "$@"
-py.test "$@"
+PYTHONPATH=$PWD PATH=$PWD/tools/git-annex-remotes:$PATH py.test "$@"
+
 
 
 

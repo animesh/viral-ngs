@@ -46,7 +46,7 @@ import util.misc
 import util.version
 
 TOOL_NAME = 'git-annex'
-TOOL_VERSION = '7.20200219'
+TOOL_VERSION = '8.20200226'
 
 _log = logging.getLogger(__name__)
 _log.setLevel(logging.DEBUG)
@@ -133,6 +133,12 @@ class GitAnnexTool(tools.Tool):
             self.save_bin_dir = bin_dir
         return self.save_bin_dir
 
+    def _get_git_executable(self):
+        """Return the path to the git executable"""
+        if not hasattr(self, 'save_git_executable'):
+            self.save_git_executable = distutils.spawn.find_executable('git')
+        return self.save_git_executable
+
     def _get_run_env(self):
         """Return the environment in which git-annex should be run.  This environment will include in its PATH
         the binaries for git-annex external special remote implementations that we add."""
@@ -201,7 +207,8 @@ class GitAnnexTool(tools.Tool):
         if batch_args:
             util.misc.chk_eq(tool, 'git-annex')
             args = tuple(args) + ('--batch',)
-        tool_cmd = (os.path.join(self._get_bin_dir(), tool),) + tuple(map(str, args))
+        tool_cmd = ((self._get_git_executable(),) if tool == 'git' else (os.path.join(self._get_bin_dir(), tool),)) + \
+            tuple(map(str, args))
         batch = _Batch(priority=priority, tool_cmd=tool_cmd, cwd=cwd or os.getcwd(), preproc=preproc)
         batched_call = _BatchedCall(batch_args=batch_args, output_acceptor=output_acceptor)
         self._batched_cmds.setdefault(batch, []).append(batched_call)
@@ -419,12 +426,12 @@ class GitAnnexTool(tools.Tool):
     def add(self, fname):
         """Add a file to git-annex"""
         _log.debug('CALL TO ADD %s; batch status = %s', fname, self._batched_cmds)
-        self.execute_batch(['add', '--include-dotfiles'], batch_args=(fname,))
+        self.execute_batch(['add'], batch_args=(fname,))
         _log.debug('RETURNED FROM CALL TO ADD %s; batch status = %s', fname, self._batched_cmds)
 
     def add_cwd(self):
         """Add files in current working directory to git-annex"""
-        self.execute(['add', '--include-dotfiles'])
+        self.execute(['add'])
 
     def add_dir(self, directory):
         """Add files in given directory to git-annex"""
@@ -433,7 +440,7 @@ class GitAnnexTool(tools.Tool):
         sleep_time = 4
         while True:
             try:
-                return self.execute(['add', '--include-dotfiles'], cwd=directory)
+                return self.execute(['add'], cwd=directory)
             except Exception as e:
                 if retries > 0:
                     _log.debug('add_dir: error %s, %d retries left', e, retries)
