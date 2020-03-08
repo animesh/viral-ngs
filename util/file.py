@@ -6,8 +6,10 @@ general file-handling routines.
 __author__ = "dpark@broadinstitute.org"
 
 import codecs
+import collections
 import contextlib
 import os
+import os.path
 import gzip
 import io
 import tempfile
@@ -1011,3 +1013,52 @@ def repack_tarballs(out_compressed_tarball,
 
     if outfile is not None:
         outfile.close()
+
+def flatten_filename_list(filename_list, rel_paths_base=None):
+    """Given a list of filenames some of which may denote files containing lists of filenames, return a flattened
+    list of filenames.  A file name prefixed with @ denotes a 'list file' containing a list of filenames."""
+
+    if rel_paths_base is None:
+        rel_paths_base = os.getcwd()
+
+    util.misc.chk(os.path.isabs(rel_paths_base))
+    
+    flat_filename_list = []
+    for filename in filename_list:
+        is_list = False
+        if filename.startswith('@'):
+            is_list = True
+            filename = filename[1:]
+        if not os.path.isabs(filename):
+            filename = os.path.join(rel_paths_base, filename)
+
+        if not is_list:
+            flat_filename_list.append(filename)
+        else:
+            flat_filename_list.extend(flatten_filename_list(slurp_file(filename).strip().split('\n'),
+                                                            rel_paths_base=os.path.dirname(filename)))
+
+    return flat_filename_list
+        
+def pretty_print_json(json_dict, sort_keys=True):
+    """Return a pretty-printed version of a dict converted to json, as a string."""
+    return json.dumps(json_dict, indent=4, separators=(',', ': '), sort_keys=sort_keys)
+
+def write_json(fname, **json_dict):
+    """Write a json dict to a file, in human-readable form."""
+    util.file.dump_file(fname=fname, value=_pretty_print_json(json_dict))
+
+def json_loads(s):
+    """Load json from string."""
+    def _load_dict_sorted(d):
+        return collections.OrderedDict(sorted(d.items()))
+
+    return json.loads(s.strip(), object_hook=_load_dict_sorted, object_pairs_hook=collections.OrderedDict)
+
+def json_loadf(fname):
+    """Load json from file"""
+    print('LOADING FROm', fname, file=sys.stderr)
+    return json_loads(util.file.slurp_file(fname))
+
+
+
