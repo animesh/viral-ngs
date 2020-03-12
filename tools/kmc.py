@@ -240,11 +240,17 @@ class KmcTool(tools.Tool):
         _in_reads = in_reads
         _out_reads = out_reads
         with util.file.tmp_dir(suffix='_kmcfilt') as t_dir:
+            _in_reads_base, _in_reads_ext = os.path.splitext(_in_reads)
+            if _in_reads_ext == '.gz':
+                _in_reads_decompressed = os.path.join(t_dir, 'decomp_' + os.path.basename(_in_reads_base))
+                util.file.decompress_gz_file(_in_reads, _in_reads_decompressed)
+                _in_reads = _in_reads_decompressed
             if in_reads_type in ('.fa', '.fasta'):
                 # kmc_tools filter currently requires fasta files to be in fasta-2line format
                 # https://github.com/refresh-bio/KMC/issues/57
-                _in_reads = os.path.join(t_dir, 'in_reads.fasta')
-                Bio.SeqIO.convert(in_reads, 'fasta', _in_reads, 'fasta-2line')
+                _in_reads_2line = os.path.join(t_dir, 'in_reads.2line.fasta')
+                Bio.SeqIO.convert(_in_reads, 'fasta', _in_reads_2line, 'fasta-2line')
+                _in_reads = _in_reads_2line
             if in_reads_type == '.bam':
                 # kmc_tools filter currently does not support .bam files
                 # https://github.com/refresh-bio/KMC/issues/66

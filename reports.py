@@ -1043,7 +1043,8 @@ __commands__.append(('fastqc', parser_fastqc))
 
 # =======================
 
-def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_taxon_kmer_metrics_json, kmer_size=tools.kmc.DEFAULT_KMER_SIZE):
+def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_taxon_kmer_metrics_json, kmer_size=tools.kmc.DEFAULT_KMER_SIZE,
+                               report_lost_kmer_locs=False):
     '''Compute metrics for determining whether an assembly may be potentially improvable with better computational
     methods.
     '''
@@ -1079,11 +1080,12 @@ def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_taxon_kmer
                 stage_metrics['taxon_kmers_lost_since_' + cmp_stage_name] = \
                     kmc_tool.get_kmer_db_info(stage_lost_taxon_kmer_db).total_kmers
 
-                taxon_refs_with_lost_kmers = _tmp_f(stage.name+'-taxon-refs-wlost-'+cmp_stage_name+'.fasta')
-                kmc_tool.filter_reads(kmer_db=stage_lost_taxon_kmer_db, in_reads=taxon_refs_fasta,
-                                      out_reads=taxon_refs_with_lost_kmers, read_min_occs=1)
-                stage_metrics['taxon_refs_with_kmers_lost_since_' + cmp_stage_name] = \
-                    util.file.fasta_length(taxon_refs_with_lost_kmers)
+                if report_lost_kmer_locs:
+                    taxon_refs_with_lost_kmers = _tmp_f(stage.name+'-taxon-refs-wlost-'+cmp_stage_name+'.fasta')
+                    kmc_tool.filter_reads(kmer_db=stage_lost_taxon_kmer_db, in_reads=taxon_refs_fasta,
+                                          out_reads=taxon_refs_with_lost_kmers, read_min_occs=1)
+                    stage_metrics['taxon_refs_with_kmers_lost_since_' + cmp_stage_name] = \
+                        util.file.fasta_length(taxon_refs_with_lost_kmers)
 
         util.file.dump_file(fname=out_taxon_kmer_metrics_json,
                             value=json.dumps(metrics, indent=4, separators=(',', ': '), sort_keys=True))
@@ -1110,6 +1112,8 @@ def parser_assembly_optimality_report(parser=argparse.ArgumentParser()):
                         required=True, help="Output file for improvability metrics")
     parser.add_argument("--kmerSize", dest='kmer_size', type=int, default=tools.kmc.DEFAULT_KMER_SIZE,
                         help='k-mer size for k-mer-based analyses')
+    parser.add_argument('--reportLostKmerLocs', dest='report_lost_kmer_locs', action='store_true',
+                        help='report of where in the reference the lost kmers are located')
     util.cmd.common_args(parser, (('loglevel', None), ('version', None)))
     util.cmd.attach_main(parser, assembly_optimality_report, split_args=True)
     return parser

@@ -1057,8 +1057,10 @@ def json_loads(s):
 
 def json_loadf(fname):
     """Load json from file"""
-    print('LOADING FROm', fname, file=sys.stderr)
     return json_loads(util.file.slurp_file(fname))
 
-
+def decompress_gz_file(in_fname_gz, out_fname):
+    with gzip.open(in_fname_gz, 'rb') as f_in:
+        with open(out_fname, 'wb') as f_out:
+            shutil.copyfileobj(f_in, f_out)
 
