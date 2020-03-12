@@ -1079,6 +1079,12 @@ def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_taxon_kmer
                 stage_metrics['taxon_kmers_lost_since_' + cmp_stage_name] = \
                     kmc_tool.get_kmer_db_info(stage_lost_taxon_kmer_db).total_kmers
 
+                taxon_refs_with_lost_kmers = _tmp_f(stage.name+'-taxon-refs-wlost-'+cmp_stage_name+'.fasta')
+                kmc_tool.filter_reads(kmer_db=stage_lost_taxon_kmer_db, in_reads=taxon_refs_fasta,
+                                      out_reads=taxon_refs_with_lost_kmers, read_min_occs=1)
+                stage_metrics['taxon_refs_with_kmers_lost_since_' + cmp_stage_name] = \
+                    util.file.fasta_length(taxon_refs_with_lost_kmers)
+
         util.file.dump_file(fname=out_taxon_kmer_metrics_json,
                             value=json.dumps(metrics, indent=4, separators=(',', ': '), sort_keys=True))
         
@@ -1162,9 +1168,6 @@ __commands__.append(('consolidate_assembly_optimality_reports', parser_consolida
 
 
 # =======================
-
-# def plot_lost_kmer_locations(taxon_
-
 
 # =======================
 
