@@ -294,6 +294,7 @@ task produce_assembly_optimality_report {
     File  final_assembly_fasta
 
     Int?  kmer_size=25
+    Boolean? report_lost_kmer_locs=False
   }
 
   String assembly_basename=basename(final_assembly_fasta, ".fasta")
@@ -312,6 +313,7 @@ task produce_assembly_optimality_report {
       ${'--stage 60_refine1_assembly ' + refine1_assembly_fasta} \
       ${'--stage 90_final_assembly ' + final_assembly_fasta} \
       ${'--kmerSize ' + kmer_size} \
+      ${true='--reportLostKmerLocs' false="" report_lost_kmer_locs} \
       --outTaxonKmerMetricsJson "${assembly_basename}.taxon_kmer_metrics.json"
   }
 
