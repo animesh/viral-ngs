@@ -1067,10 +1067,10 @@ def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_taxon_kmer
             stage2taxon_kmer_db[stage.name] = stage_taxon_kmer_db
             stage_metrics['kmers'] = kmc_tool.get_kmer_db_info(stage_kmer_db).total_kmers
             stage_metrics['taxon_kmers'] = kmc_tool.get_kmer_db_info(stage_taxon_kmer_db).total_kmers
-            print('STAGE NUM IS', stage_num, 'STAGE IS', stage)
+
             for cmp_stage_name in (stage.cmp_stages if stage.cmp_stages is not None else \
                                    ([assembly_stages[stage_num-1].name] if stage_num > 0 else [])):
-                print('LOOKING AT STAGE', cmp_stage_name, 'db is', stage2taxon_kmer_db)
+
                 stage_lost_taxon_kmer_db = kmc_tool.kmers_binary_op(op='kmers_subtract',
                                                                     kmer_db1=stage2taxon_kmer_db[cmp_stage_name],
                                                                     kmer_db2=stage_taxon_kmer_db,
@@ -1114,49 +1114,17 @@ __commands__.append(('assembly_optimality_report', parser_assembly_optimality_re
 # =======================
 
 def consolidate_assembly_optimality_reports(taxon_kmer_metrics_jsons, out_report_fname, plot_format,
-                                            plot_style, plot_width, plot_height, plot_dpi):
+                                            plot_style):
     """Take assembly optimality reports for individual assemblies, and produce a consolidated summary."""
 
     taxon_kmer_metrics_list = list(map(util.file.json_loadf, util.file.flatten_filename_list(taxon_kmer_metrics_jsons)))
-
-    print(util.file.pretty_print_json(taxon_kmer_metrics_list))
     z = pd.json_normalize(taxon_kmer_metrics_list)
-    pd.set_option('display.max_columns', None)
     z.columns = pd.MultiIndex.from_tuples([tuple(c.split('.')) for c in z.columns], names=('stage', 'stats'))
-    print('--------------')
     z = z.filter(axis='columns', like='lost')
-    print(z)
-    print('--------------')
-    for c in z.columns:
-        print(type(c), c)
-    print('--------------')
-    print(len(taxon_kmer_metrics_list))
 
     with plt.style.context(plot_style):
-        #fig = plt.gcf()
-        #DPI = plot_dpi or fig.get_dpi()
-        #fig.set_size_inches(float(plot_width) / float(DPI), float(plot_height) / float(DPI))
-
-        # font_size = (2.5 * plot_height) / float(DPI)
-
-        # fig, axs = plt.subplots(2)
-
-        # # Set the tick labels font
-        # for ax in axs:
-        #     for label in (ax.get_xticklabels() + ax.get_yticklabels()):
-        #         label.set_fontsize(font_size)
-
         z.hist(layout=(len(z.columns), 1), figsize=(8, 20), sharex=True)
-        
-
-        # kmers_lost_fields = [tax_kmer_metrics for taxon_kmer_metrics in taxon_kmer_metrics_list]
-
-        # stages = for taxon_kmer_metrics in taxon_kmer_metrics_list
-        # plt.hist([ for taxon_kmer_metrics in taxon_kmer_metrics_list \
-        #            for stage, stage_stats in taxon_kmer_metrics.items() ]
-        #          for stat, val in stage_stats ])
-            
-    plt.savefig(out_report_fname)    #, bbox_inches='tight')
+    plt.savefig(out_report_fname, format=plot_format)
     
 
 def parser_consolidate_assembly_optimality_reports(parser=argparse.ArgumentParser()):
@@ -1185,28 +1153,6 @@ def parser_consolidate_assembly_optimality_reports(parser=argparse.ArgumentParse
         metavar='',
         help="The plot visual style. Valid options: " + ", ".join(plt.style.available) + " (default: %(default)s)"
     )
-    parser.add_argument(
-        '--plotWidth',
-        dest="plot_width",
-        default=880,
-        type=int,
-        help="Width of the plot in pixels (default: %(default)s)"
-    )
-    parser.add_argument(
-        '--plotHeight',
-        dest="plot_height",
-        default=2000,
-        type=int,
-        help="Width of the plot in pixels (default: %(default)s)"
-    )
-    parser.add_argument(
-        '--plotDPI',
-        dest="plot_dpi",
-        default=plt.gcf().get_dpi(),
-        type=int,
-        help="dots per inch for rendered output, more useful for vector modes (default: %(default)s)"
-    )
-
     util.cmd.common_args(parser, (('loglevel', None), ('version', None)))
     util.cmd.attach_main(parser, consolidate_assembly_optimality_reports, split_args=True)
     return parser
@@ -1216,6 +1162,12 @@ __commands__.append(('consolidate_assembly_optimality_reports', parser_consolida
 
 
 # =======================
+
+# def plot_lost_kmer_locations(taxon_
+
+
+# =======================
+
 
 
 def full_parser():
