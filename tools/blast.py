@@ -9,7 +9,7 @@ import tools.samtools
 import util.misc
 
 TOOL_NAME = "blast"
-TOOL_VERSION = "2.7.1"
+TOOL_VERSION = "2.9.0"
 
 _log = logging.getLogger(__name__)
 
