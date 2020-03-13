@@ -294,7 +294,7 @@ task produce_assembly_optimality_report {
     File  final_assembly_fasta
 
     Int?  kmer_size=25
-    Boolean? report_lost_kmer_locs=False
+    Boolean? report_lost_kmer_locs=false
   }
 
   String assembly_basename=basename(final_assembly_fasta, ".fasta")
