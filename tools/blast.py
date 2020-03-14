@@ -2,7 +2,12 @@
 
 import logging
 import os
+import os.path
 import subprocess
+
+import Bio.Blast
+import Bio.Blast.Applications 
+import Bio.Blast.NCBIXML
 
 import tools
 import tools.samtools
@@ -79,6 +84,14 @@ class BlastnTool(BlastTools):
             for hit in self.get_hits_pipe(inf, db, threads=threads):
                 yield hit
 
+    def get_hits_fasta_xml(self, inFasta, db, evalue=0.00001, **kw):
+        with util.file.tempfname(prefix='blast-xml-out') as xml_fname:
+            blastn_cline = Bio.Blast.Applications.NcbiblastnCommandline(cmd=self.install_and_get_path(),
+                                                                        query=inFasta, db=db,
+                                                                        outfmt=5, out=xml_fname, **kw)
+            stdout, stderr = blastn_cline()
+            with open(xml_fname) as xml_f:
+                return Bio.Blast.NCBIXML.read(xml_f)
 
 class MakeblastdbTool(BlastTools):
     """ Tool wrapper for makeblastdb """
