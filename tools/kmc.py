@@ -16,7 +16,9 @@ import collections
 import contextlib
 import tempfile
 
+import Bio.Seq
 import Bio.SeqIO
+import Bio.Alphabet
 
 import read_utils
 import tools
@@ -312,6 +314,11 @@ class KmcTool(tools.Tool):
         # db1_min_occs, db1_max_occs, db2_min_occs, db2_max_occs, db_out_min_occs, db_out_max_occs,
         self.execute(['transform', kmer_db_in, 'set_counts', value, kmer_db_out], threads=threads)
         _chk(self.is_kmer_db(kmer_db_out), 'set_kmer_counts: output not created')
+
+    @staticmethod
+    def get_rc(kmer):
+        """Return the reverse complement of a kmer (or any DNA string)"""
+        return str(Bio.Seq.Seq(kmer, Bio.Alphabet.IUPAC.unambiguous_dna).reverse_complement())
 
     class KmerManager(object):
         """Simplifies creation of kmer dbs"""

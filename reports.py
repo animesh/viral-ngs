@@ -35,6 +35,7 @@ import tools.samtools
 import tools.bwa
 import tools.fastqc
 import tools.kmc
+import tools.blast
 import assembly
 import interhost
 from util.stats import mean, median
@@ -1044,17 +1045,27 @@ __commands__.append(('fastqc', parser_fastqc))
 # =======================
 
 def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_taxon_kmer_metrics_json, kmer_size=tools.kmc.DEFAULT_KMER_SIZE,
-                               report_lost_kmer_locs=False):
+                               report_lost_kmer_locs=False, align_kmers_to=None):
     '''Compute metrics for determining whether an assembly may be potentially improvable with better computational
     methods.
     '''
-
 
     kmc_tool = tools.kmc.KmcTool()
     join = os.path.join
     metrics = {}
     with util.file.tmp_dir(suffix='-assembly-optimality-metrics') as tmp_d:
         _tmp_f = functools.partial(join, tmp_d)
+
+
+        blast_tool = tools.blast.MakeblastdbTool()
+        db_pfx = blast_tool.build_database(fasta_files=[taxon_refs_with_lost_kmers],
+                                           database_prefix_path=_tmp_f('kmer-align-blastdb'))
+
+        blastn_tool = tools.blast.BlastnTool()
+        blast_record = blastn_tool.get_hits_fasta_xml(inFasta=align_kmers_to or assembly_stages[-1].seqs_file, db=db_pfx,
+                                                      max_target_seqs=10000)
+
+
         taxon_kmer_db = kmc_tool.build_kmer_db(seq_files=[taxon_refs_fasta], kmer_db=_tmp_f('taxon-kmers'), kmer_size=kmer_size)
         stage2taxon_kmer_db = {}
         for stage_num, stage in enumerate(assembly_stages):
@@ -1081,11 +1092,34 @@ def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_taxon_kmer
                     kmc_tool.get_kmer_db_info(stage_lost_taxon_kmer_db).total_kmers
 
                 if report_lost_kmer_locs:
-                    taxon_refs_with_lost_kmers = _tmp_f(stage.name+'-taxon-refs-wlost-'+cmp_stage_name+'.fasta')
+                    pfx = stage.name+'-taxon-refs-wlost-'+cmp_stage_name
+                    taxon_refs_with_lost_kmers = _tmp_f(pfx+'.fasta')
                     kmc_tool.filter_reads(kmer_db=stage_lost_taxon_kmer_db, in_reads=taxon_refs_fasta,
                                           out_reads=taxon_refs_with_lost_kmers, read_min_occs=1)
                     stage_metrics['taxon_refs_with_kmers_lost_since_' + cmp_stage_name] = \
                         util.file.fasta_length(taxon_refs_with_lost_kmers)
+
+                    kmers = kmc_tool.get_kmer_counts(kmer_db=stage_lost_taxon_kmer_db)
+
+                    E_VALUE_THRESH = 0.001
+
+                    kmer2locs = defaultdict(list)
+
+                    for alignment in blast_record.alignments:
+                        for hsp in alignment.hsps:
+                            if hsp.expect < E_VALUE_THRESH:
+                                for i in range(len(hsp.sbjct) - kmer_size):
+
+                                    kmer = hsp.sbjct[i:i+kmer_size]
+                                    kmer_rc = kmc_tool.get_rc(kmer)
+
+                                    for k in (kmer, kmer_rc):
+                                        if k in kmers:
+                                            kmer2locs[k].append((hsp.sbjct_start if hsp.strand=='Plus' else hsp.sbjct_end) + i + int(kmer_size/2) )
+                    util.file.dump_file(pfx + '.txt', '\n'.join(map(str, kmer2locs.items())))
+                    odd_kmers = sorted([k for k in kmers if k not in kmer2locs])
+                    util.file.dump_file(pfx + '.odd.txt', '\n'.join(odd_kmers))
+                    util.file.dump_file(pfx + '.odd.rc.txt', '\n'.join(map(get_rc, odd_kmers)))
 
         util.file.dump_file(fname=out_taxon_kmer_metrics_json,
                             value=json.dumps(metrics, indent=4, separators=(',', ': '), sort_keys=True))
@@ -1114,6 +1148,7 @@ def parser_assembly_optimality_report(parser=argparse.ArgumentParser()):
                         help='k-mer size for k-mer-based analyses')
     parser.add_argument('--reportLostKmerLocs', dest='report_lost_kmer_locs', action='store_true',
                         help='report of where in the reference the lost kmers are located')
+    parser.add_argument('--alignKmersTo', dest='align_kmers_to', help='fasta file to which to align kmers')
     util.cmd.common_args(parser, (('loglevel', None), ('version', None)))
     util.cmd.attach_main(parser, assembly_optimality_report, split_args=True)
     return parser
