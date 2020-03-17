@@ -1058,14 +1058,14 @@ def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_taxon_kmer
         _tmp_f = functools.partial(join, tmp_d)
 
 
-        blast_tool = tools.blast.MakeblastdbTool()
-        db_pfx = blast_tool.build_database(fasta_files=[taxon_refs_fasta],
-                                           database_prefix_path=_tmp_f('kmer-align-blastdb'))
+        if report_lost_kmer_locs:
+            blast_tool = tools.blast.MakeblastdbTool()
+            db_pfx = blast_tool.build_database(fasta_files=[taxon_refs_fasta],
+                                               database_prefix_path=_tmp_f('kmer-align-blastdb'))
 
-        blastx_tool = tools.blast.TblastxTool()
-        blast_record = blastx_tool.get_hits_fasta_xml(inFasta=align_kmers_to or assembly_stages[-1].seqs_file, db=db_pfx,
-                                                      max_target_seqs=10000)
-
+            blastx_tool = tools.blast.TblastxTool()
+            blast_record = blastx_tool.get_hits_fasta_xml(inFasta=align_kmers_to or assembly_stages[-1].seqs_file, db=db_pfx,
+                                                          max_target_seqs=10000)
 
         taxon_kmer_db = kmc_tool.build_kmer_db(seq_files=[taxon_refs_fasta], kmer_db=_tmp_f('taxon-kmers'), kmer_size=kmer_size)
         stage2taxon_kmer_db = {}
