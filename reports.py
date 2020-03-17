@@ -10,6 +10,7 @@ import logging
 import glob
 import os
 import os.path
+import sys
 import time
 from collections import OrderedDict, defaultdict
 import csv
@@ -1058,11 +1059,11 @@ def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_taxon_kmer
 
 
         blast_tool = tools.blast.MakeblastdbTool()
-        db_pfx = blast_tool.build_database(fasta_files=[taxon_refs_with_lost_kmers],
+        db_pfx = blast_tool.build_database(fasta_files=[taxon_refs_fasta],
                                            database_prefix_path=_tmp_f('kmer-align-blastdb'))
 
-        blastn_tool = tools.blast.BlastnTool()
-        blast_record = blastn_tool.get_hits_fasta_xml(inFasta=align_kmers_to or assembly_stages[-1].seqs_file, db=db_pfx,
+        blastx_tool = tools.blast.TblastxTool()
+        blast_record = blastx_tool.get_hits_fasta_xml(inFasta=align_kmers_to or assembly_stages[-1].seqs_file, db=db_pfx,
                                                       max_target_seqs=10000)
 
 
@@ -1119,7 +1120,7 @@ def assembly_optimality_report(taxon_refs_fasta, assembly_stages, out_taxon_kmer
                     util.file.dump_file(pfx + '.txt', '\n'.join(map(str, kmer2locs.items())))
                     odd_kmers = sorted([k for k in kmers if k not in kmer2locs])
                     util.file.dump_file(pfx + '.odd.txt', '\n'.join(odd_kmers))
-                    util.file.dump_file(pfx + '.odd.rc.txt', '\n'.join(map(get_rc, odd_kmers)))
+                    util.file.dump_file(pfx + '.odd.rc.txt', '\n'.join(map(kmc_tool.get_rc, odd_kmers)))
 
         util.file.dump_file(fname=out_taxon_kmer_metrics_json,
                             value=json.dumps(metrics, indent=4, separators=(',', ': '), sort_keys=True))
