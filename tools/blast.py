@@ -89,9 +89,66 @@ class BlastnTool(BlastTools):
             blastn_cline = Bio.Blast.Applications.NcbiblastnCommandline(cmd=self.install_and_get_path(),
                                                                         query=inFasta, db=db,
                                                                         outfmt=5, out=xml_fname, **kw)
+            _log.debug('BLASTN COMMAND LINE: %s', blastn_cline)
             stdout, stderr = blastn_cline()
             with open(xml_fname) as xml_f:
                 return Bio.Blast.NCBIXML.read(xml_f)
+
+
+class TblastxTool(BlastTools):
+    """ Tool wrapper for tblastx """
+    subtool_name = 'tblastx'
+
+    def get_hits_pipe(self, inPipe, db, threads=None):
+
+        # run blastn and emit list of read IDs
+        threads = util.misc.sanitize_thread_count(threads)
+        cmd = [self.install_and_get_path(),
+            '-db', db,
+            '-word_size', 16,
+            '-num_threads', threads,
+            '-evalue', '1e-6',
+            '-outfmt', 6,
+            '-max_target_seqs', 1,
+        ]
+        cmd = [str(x) for x in cmd]
+        _log.debug('| ' + ' '.join(cmd) + ' |')
+        blast_pipe = subprocess.Popen(cmd, stdin=inPipe, stdout=subprocess.PIPE)
+
+        # strip tab output to just query read ID names and emit
+        last_read_id = None
+        for line in blast_pipe.stdout:
+            line = line.decode('UTF-8').rstrip('\n\r')
+            read_id = line.split('\t')[0]
+            # only emit if it is not a duplicate of the previous read ID
+            if read_id != last_read_id:
+                last_read_id = read_id
+                yield read_id
+
+        if blast_pipe.poll():
+            raise subprocess.CalledProcessError(blast_pipe.returncode, cmd)
+
+    def get_hits_bam(self, inBam, db, threads=None):
+        return self.get_hits_pipe(
+            tools.samtools.SamtoolsTool().bam2fa_pipe(inBam),
+            db,
+            threads=threads)
+
+    def get_hits_fasta(self, inFasta, db, threads=None):
+        with open(inFasta, 'rt') as inf:
+            for hit in self.get_hits_pipe(inf, db, threads=threads):
+                yield hit
+
+    def get_hits_fasta_xml(self, inFasta, db, evalue=0.00001, **kw):
+        with util.file.tempfname(prefix='blast-xml-out') as xml_fname:
+            tblastx_cline = Bio.Blast.Applications.NcbitblastxCommandline(cmd=self.install_and_get_path(),
+                                                                          query=inFasta, db=db,
+                                                                          outfmt=5, out=xml_fname, **kw)
+            _log.debug('TBLASTX COMMAND LINE: %s', tblastx_cline)
+            stdout, stderr = tblastx_cline()
+            with open(xml_fname) as xml_f:
+                return Bio.Blast.NCBIXML.read(xml_f)
+
 
 class MakeblastdbTool(BlastTools):
     """ Tool wrapper for makeblastdb """
